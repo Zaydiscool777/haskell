@@ -1,9 +1,9 @@
-entrypoint = "main.sh"
-modules = ["bash"]
+entrypoint = "ghci"
+modules = ["bash", "haskell-ghc9.8"]
 
 [nix]
 channel = "stable-24_05"
 
 [deployment]
-run = ["bash", "main.sh"]
+run = ["bash", "ghci"]
 deploymentTarget = "cloudrun"
