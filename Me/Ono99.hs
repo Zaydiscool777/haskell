@@ -37,9 +37,9 @@ isPalindrome :: Eq a => [a] -> Bool
 isPalindrome x = myReverse x == x
 
 data NestedList a = Elem a | List [NestedList a]
-flatten :: NestedList a -> [a]
-flatten (Elem x) = [x]
-flatten (List a) = concatMap flatten a
+nlflatten :: NestedList a -> [a]
+nlflatten (Elem x) = [x]
+nlflatten (List a) = concatMap nlflatten a
 
 compress :: Eq a => [a] -> [a]
 compress (a:b:r)
@@ -292,9 +292,9 @@ hbalTReeNodes x n = concatMap toFilteredTRees [minHeight..maxHeight]
 countLeaves :: TRee a -> Int
 countLeaves Empty = 0; countLeaves (Branch _ Empty Empty) = 1
 countLeaves (Branch _ a b) = countLeaves a + countLeaves b
-leaves :: TRee a -> [a] -- 61A
-leaves Empty = []; leaves (Branch x Empty Empty) = [x]
-leaves (Branch _ a b) = leaves a ++ leaves b
+trleaves :: TRee a -> [a] -- 61A
+trleaves Empty = []; trleaves (Branch x Empty Empty) = [x]
+trleaves (Branch _ a b) = trleaves a ++ trleaves b
 
 internals :: TRee a -> [a]
 internals Empty = []; internals (Branch _ Empty Empty) = [];
@@ -411,14 +411,27 @@ parseTReeD Empty = "."
 parseTReeD (Branch v l r) = v : parseTReeD l ++ parseTReeD r
 -- 70-73
 -- 70B is just like 54A but for multiway trees (Data.Tree as T)
+
 nnodes :: Tree a -> Int -- 70C
-nnodes (Node _ x) = succ . sum . map nnodes x
+nnodes (Node _ x) = succ (sum (map nnodes x))
+-- failed. it seemed easy, but i guess this was a more imperative exercise
+parseSTree :: String -> Tree Char
+parseSTree (x:"^") = Node  x  []
+parseSTree (x:xs) = Node  x  ys
+  where
+    z = map fst $ filter ((==) 0 . snd) $ zip [0..] $
+      scanl (+) 0 $ map (\x -> if x == '^' then -1 else 1) xs
+    ys = zipWith (curry (parseSTree . uncurry (sub xs))) (init z) (tail z)
+    sub s a b = take (b - a) $ drop a s
+parseTreeS :: Tree Char -> String -- i did this, but it was pretty easy
+parseTreeS (Node v c) = v : concatMap parseTreeS c ++ "^"
 
-parseSTree :: String -> Tree String
-parseSTree = 
+ipl :: Tree a -> Int
+ipl = len
+  where
+    len (Node _ []) = 0
+    len (Node _ c) = sum (map (succ . len) c)
 
-parseTreeS :: Tree String -> String -- 70
-parseTreeS (Node v c) = v ++ concatMap parseTreeS c ++ "^"
 
 ---------------------------------------------------
 
@@ -450,7 +463,7 @@ main = do
   print $ myLength test
   print $ myReverse test
   print $ isPalindrome "amanaplanacanalpanama"
-  print . flatten $ List [Elem 1, List [Elem 3, Elem 2], Elem 4]
+  print . nlflatten $ List [Elem 1, List [Elem 3, Elem 2], Elem 4]
   print $ compress test2
   print $ pack test2
   print $ encode test2
@@ -502,7 +515,7 @@ main = do
   print $ cSymBal 5
   print . length $ hBalTRee undefined 4
   print . length $ hbalTReeNodes undefined 10 -- haskell is very lazy
-  print' . countLeaves $ test5; print . leaves $ test5
+  print' . countLeaves $ test5; print . trleaves $ test5
   print' . internals $ test5; print $ atLevel test5 1
   -- print' $ compTRee 5; print $ isComp (compTRee 50) -- fix compTRee!
   print $ layout1 test5
