@@ -4,9 +4,10 @@ import Control.Exception (evaluate) -- timer
 import System.Random (randomRIO) -- -package random
 import qualified Data.Map as M -- -package containers
 import Data.Bifunctor (first, second)
-import Data.List (sort, sortOn, sortBy, findIndex)
+import Data.List (findIndex, sort, sortBy, sortOn, uncons)
 import Data.Tuple (swap)
 import Data.Maybe (fromJust)
+import Data.Tree as T -- -package containers
 -- 1-10
 
 myLast :: [a] -> a
@@ -223,64 +224,64 @@ tablen n x = unlines $ map ((unwords . map show) . (\l -> l ++ [x l])) $ permBoo
 gray :: Int -> [String]
 gray 1 = ["0", "1"]; gray n = map ('0':) x ++ map ('1':) (reverse x) where x = gray (pred n)
 
-data MyBTree a = MyLeaf {val :: Int, get :: a} | MyBranch {val :: Int, left :: MyBTree a, right :: MyBTree a}
+data MyBTRee a = MyLeaf {val :: Int, get :: a} | MyBranch {val :: Int, left :: MyBTRee a, right :: MyBTRee a}
 huffman :: [(a, Int)] -> [(a, String)]
 huffman = listHuff . makeHuff . sortOn val . map (uncurry $ flip MyLeaf)
   where
-    makeHuff :: [MyBTree a] -> MyBTree a
-    makeHuff [] = error "empty list of MyBTrees"; makeHuff [x] = x
+    makeHuff :: [MyBTRee a] -> MyBTRee a
+    makeHuff [] = error "empty list of MyBTRees"; makeHuff [x] = x
     makeHuff (a:b:r) = makeHuff $ sortOn val (MyBranch (val a + val b) a b : r)
-    listHuff :: MyBTree a -> [(a, String)]
+    listHuff :: MyBTRee a -> [(a, String)]
     listHuff (MyLeaf _ g) = [(g, "")]
     listHuff (MyBranch _ l r) = map (second ('0':)) (listHuff l) ++ map (second ('1':)) (listHuff r)
 -- 51 to 53 do not exist
 -- 54 to 60
-data Tree a = Empty | Branch a (Tree a) (Tree a) deriving (Show, Eq)
-leaf :: a -> Tree a
+data TRee a = Empty | Branch a (TRee a) (TRee a) deriving (Show, Eq)
+leaf :: a -> TRee a
 leaf x = Branch x Empty Empty
 -- 54A would check for valid trees, but its type system forces trees to be valid
 
-cBalTree :: Int -> [Tree Char]
-cBalTree 0 = [Empty]; cBalTree 1 = [leaf 'x']
-cBalTree x
-  | odd x = branches (cart (cBalTree h) (cBalTree h))
-  | otherwise = branches (cart (cBalTree h) (cBalTree i)) ++ branches (cart (cBalTree i) (cBalTree h))
+cBalTRee :: Int -> [TRee Char]
+cBalTRee 0 = [Empty]; cBalTRee 1 = [leaf 'x']
+cBalTRee x
+  | odd x = branches (cart (cBalTRee h) (cBalTRee h))
+  | otherwise = branches (cart (cBalTRee h) (cBalTRee i)) ++ branches (cart (cBalTRee i) (cBalTRee h))
   where h = pred x `div` 2; i = succ h; cart xs ys = [(x, y) | x <- xs, y <- ys]; branches = map (uncurry (Branch 'x'))
 
-symmetric :: (Eq a) => Tree a -> Bool
+symmetric :: (Eq a) => TRee a -> Bool
 symmetric x = isMirror x x
   where
-    isMirror :: (Eq a) => Tree a -> Tree a -> Bool
+    isMirror :: (Eq a) => TRee a -> TRee a -> Bool
     isMirror Empty Empty = True
     isMirror Empty (Branch {}) = False
     isMirror (Branch {}) Empty = False
     isMirror (Branch _ al ar) (Branch _ bl br) = isMirror al br && isMirror ar bl
 
-constTree :: (Ord a) => [a] -> Tree a
-constTree = foldr addTree Empty . reverse
+constTRee :: (Ord a) => [a] -> TRee a
+constTRee = foldr addTRee Empty . reverse
   where
-    addTree :: (Ord a) => a -> Tree a -> Tree a
-    addTree x Empty = leaf x
-    addTree x (Branch v l r)
-      | x <= v = Branch v (addTree x l) r
-      | otherwise = Branch v l (addTree x r)
+    addTRee :: (Ord a) => a -> TRee a -> TRee a
+    addTRee x Empty = leaf x
+    addTRee x (Branch v l r)
+      | x <= v = Branch v (addTRee x l) r
+      | otherwise = Branch v l (addTRee x r)
 
-cSymBal :: Int -> [Tree Char]
-cSymBal = filter symmetric . cBalTree
+cSymBal :: Int -> [TRee Char]
+cSymBal = filter symmetric . cBalTRee
 -- failed, but i *think* i understand it now
-hBalTree :: a -> Int -> [Tree a]
-hBalTree x 0 = [Empty]
-hBalTree x 1 = [leaf x]
-hBalTree x h = [Branch x l r |
+hBalTRee :: a -> Int -> [TRee a]
+hBalTRee x 0 = [Empty]
+hBalTRee x 1 = [leaf x]
+hBalTRee x h = [Branch x l r |
   (hl, hr) <- [(j, i), (i, i), (i, j)],
-  l <- hBalTree x hl, r <- hBalTree x hr]
+  l <- hBalTRee x hl, r <- hBalTRee x hr]
     where i = pred h; j = pred i
 -- failed, but i knew minNodes was related to fib
-hbalTreeNodes :: a -> Int -> [Tree a]
-hbalTreeNodes _ 0 = [Empty]
-hbalTreeNodes x n = concatMap toFilteredTrees [minHeight..maxHeight]
+hbalTReeNodes :: a -> Int -> [TRee a]
+hbalTReeNodes _ 0 = [Empty]
+hbalTReeNodes x n = concatMap toFilteredTRees [minHeight..maxHeight]
   where
-    toFilteredTrees = filter ((n==) . countNodes) . hBalTree x
+    toFilteredTRees = filter ((n==) . countNodes) . hBalTRee x
     minNodesSeq = 0:1:zipWith ((+).(1+)) minNodesSeq (tail minNodesSeq)
     minNodes = (minNodesSeq !!)
     minHeight = ceiling $ logBase 2 $ fromIntegral (succ n)
@@ -288,14 +289,136 @@ hbalTreeNodes x n = concatMap toFilteredTrees [minHeight..maxHeight]
     countNodes Empty = 0
     countNodes (Branch _ l r) = succ (countNodes l + countNodes r)
 -- 61-69
-countLeaves :: Tree a -> Int
+countLeaves :: TRee a -> Int
 countLeaves Empty = 0; countLeaves (Branch _ Empty Empty) = 1
 countLeaves (Branch _ a b) = countLeaves a + countLeaves b
-leaves :: Tree a -> [a] -- 61A
+leaves :: TRee a -> [a] -- 61A
 leaves Empty = []; leaves (Branch x Empty Empty) = [x]
 leaves (Branch _ a b) = leaves a ++ leaves b
 
--- internal nodes are basically everything not leaves
+internals :: TRee a -> [a]
+internals Empty = []; internals (Branch _ Empty Empty) = [];
+internals (Branch v a b) = v : internals a ++ internals b
+atLevel :: TRee a -> Int -> [a] -- 62B
+atLevel Empty _ = []; atLevel (Branch v _ _) 0 = [v]
+atLevel (Branch _ a b) x = atLevel a (pred x) ++ atLevel b (pred x)
+
+compTRee :: Int -> TRee Char
+compTRee x = Empty -- !
+isComp :: TRee a -> Bool
+isComp Empty = True
+isComp (Branch _ l r) = abs (len l - len r) <= 1 && isComp l && isComp r
+  where
+    len Empty = 0
+    len (Branch _ a b) = succ (max (len a) (len b))
+
+layout1 :: TRee a -> [(a, Int, Int)]
+layout1 x = zipWith (curry (\(i, (a, d)) -> (a, i, succ d))) [1..] (lnDepth x)
+  where
+    lnDepth :: TRee a -> [(a, Int)]
+    lnDepth Empty = []
+    lnDepth (Branch v l r) = upChild l ++ (v, 0) : upChild r
+    upChild = map (second succ) . lnDepth
+
+layout2 :: TRee a -> [(a, Int, Int)]
+layout2 x = map (\(a, x, y) -> (a, x + minsnd, negate y)) (draw x sp (height x))
+  where
+    minsnd = negate (minimum (map (\(_, a, _) -> a) (draw x sp (height x))))
+    height :: TRee a -> Int -- get maximum height
+    height Empty = 0
+    height (Branch _ l r) = succ (max (height l) (height r))
+    sp = 2 ^ pred (pred (height x))
+    draw :: TRee a -> Int -> Int -> [(a, Int, Int)]
+    draw Empty _ _ = []
+    draw (Branch v l r) s h = [(v, 0, 0)]
+      ++ map (\(a, x, y) -> (a, x - s, pred y)) (draw l (s `div` 2) (h - 1))
+      ++ map (\(a, x, y) -> (a, x + s, pred y)) (draw r (s `div` 2) (h - 1))
+-- failed 66. the solution also breaks.
+parseSTRee :: String -> TRee String -- note: exercise wants Maybe (TRee String), where Nothing is for invalid input
+parseSTRee "" = Empty
+parseSTRee z = Branch t (parseSTRee l) (parseSTRee r)
+  where
+    stail = maybe "" snd . uncons; sinit "" = ""; sinit x = init x
+    (t, a) = span ('('/=) z -- "abc(bla,)" -> ("abc", "(bla,)")
+    b = (stail . sinit) a -- "(bla,)" -> "bla,"
+    (l, r) = go "" b 0 -- "bla," -> ("bla", "")
+    go :: String -> String -> Int -> (String, String)
+    go x "" _ = ("", "") -- not (x, "")
+    go x (',':r) 0 = (reverse x, r)
+    go x ('(':r) n = go ('(':x) r (succ n)
+    go x (')':r) n = go (')':x) r (pred n)
+    go x (y:r) n = go (y:x) r n
+parseTReeS :: TRee String -> String
+parseTReeS Empty = ""
+parseTReeS (Branch v Empty Empty) = v
+parseTReeS (Branch v l r) = v ++ '(' : parseTReeS l ++ ',' : parseTReeS r ++ ")"
+
+preorder :: TRee a -> [a]
+preorder Empty = []; preorder (Branch v l r) = v : preorder l ++ preorder r
+inorder :: TRee a -> [a]
+inorder Empty = []; inorder (Branch v l r) = inorder l ++ v : inorder r
+postorder :: TRee a -> [a] -- bonus!
+postorder Empty = []; postorder (Branch v l r) = postorder l ++ postorder r ++ [v]
+-- instead of omitting null, make it a seperate character. (a.k.a. exercise 69)
+constPreIn :: (Eq a) => [a] -> [a] -> TRee a
+{-
+given the preorder and inorder traversals of a binary tree, if all elements are unique, we can construct the tree.
+preorder: root, left, right
+inorder: left, root, right
+we can take the first element of preorder as root, then split inorder at that element to get left and right subtrees.
+since the element after it the first preorder part of the right subtree,
+we can use it to split preorder into left and right subtrees, and run recursively.
+-} -- this also works with postorder, just take the last instead of first
+constPreIn [] [] = Empty; constPreIn x y | length x /= length y = error "different sizes"
+constPreIn p i = Branch v l r
+  where
+    v = head p
+    (a, _:b) = span (/=v) (tail p)
+    (d, e) = span (/=v) i
+    (l, r) = (constPreIn a d, constPreIn b e)
+constPrePost :: (Eq a) => [a] -> [a] -> TRee a -- bonus!
+{-
+we can first remove the first of preorder and the last of postorder, which is the root.
+now, the last of postorder is the first of the right branch in preorder,
+and the last of preorder is the first of the right branch in postorder.
+because of this, we can split the left and right subtrees, and run recursively.
+-}
+constPrePost [] [] = Empty; constPrePost x y | length x /= length y = error "different sizes"
+constPrePost p o = Branch v l r
+  where
+    v = head p
+    (a, b) = (tail p, init o)
+    (sp, so) = (last b, last a)
+    (c, d) = span (sp/=) a
+    (e, f) = span (so/=) b
+    l = constPrePost c e
+    r = constPrePost d f
+
+parseDTRee :: String -> TRee Char
+parseDTRee "." = Empty; parseDTRee "" = Empty
+parseDTRee (v:x) = Branch v (parseDTRee l) (parseDTRee r)
+  where
+    a:b = x
+    (l, c:d) = go [a] b 2
+    (r, _) = go [c] d 2
+    go :: String -> String -> Int -> (String, String)
+    go x "" _ = ("", "") -- not (x, "")
+    go x r 0 = (reverse x, r)
+    go x ('.':r) n = go ('.':x) r (pred n)
+    go x (y:r) n = go (y:x) r (succ n)
+parseTReeD :: TRee Char -> String
+parseTReeD Empty = "."
+parseTReeD (Branch v l r) = v : parseTReeD l ++ parseTReeD r
+-- 70-73
+-- 70B is just like 54A but for multiway trees (Data.Tree as T)
+nnodes :: Tree a -> Int -- 70C
+nnodes (Node _ x) = succ . sum . map nnodes x
+
+parseSTree :: String -> Tree String
+parseSTree = 
+
+parseTreeS :: Tree String -> String -- 70
+parseTreeS (Node v c) = v ++ concatMap parseTreeS c ++ "^"
 
 ---------------------------------------------------
 
@@ -303,7 +426,7 @@ test = "abcdefghi"
 test2 = "aaabccddaddee"
 test3 = ["ax", "bx", "cx", "defg", "h", "j", "lmn"]
 test4 = 4268880 -- 66389621760
-test5 = constTree [5, 3, 18, 1, 4, 12, 21]
+test5 = constTRee [5, 3, 18, 1, 4, 12, 21]
 
 timer :: a -> IO (Double, a)
 timer action = do
@@ -312,6 +435,12 @@ timer action = do
     end <- getCPUTime
     let diff = fromIntegral (end - start) / 10^12 :: Double
     return (diff, result)
+
+print' :: (Show a) => a -> IO ()
+print' = putStr . show
+
+printM :: (Show a) => IO a -> IO ()
+printM = (>>= print)
 
 main :: IO ()
 main = do
@@ -336,12 +465,12 @@ main = do
   print $ removeAt 3 test2
   print $ insertAt 'z' test2 5
   print $ range (-3) 7
-  rndSelect test 5 >>= print
-  lottoSelect 6 50 >>= print
-  rndPermu test >>= print
+  printM $ rndSelect test 5
+  printM $ lottoSelect 6 50
+  printM $ rndPermu test
   print $ combinations 2 [1..4]
-  putStr . show $ group3 test !! 792; print $ group' [2,2,5] test !! 729
-  putStr . show $ lsort test3; print $ lfsort test3
+  print' $ group3 test !! 792; print $ group' [2,2,5] test !! 729
+  print' $ lsort test3; print $ lfsort test3
   -- 29-30 does not exist
   -- 29-30 does not exist
   print $ isPrime 4327
@@ -367,14 +496,18 @@ main = do
   -- 52 does not exist
   -- 53 does not exist
   -- 54 is redundant
-  print $ cBalTree 4
-  print $ symmetric (Branch 'x' (leaf 'y') (leaf 'y'))
+  print $ cBalTRee 4
+  print . symmetric $ Branch 'x' (leaf 'y') (leaf 'y')
   print . symmetric $ test5
   print $ cSymBal 5
-  print . length $ hBalTree undefined 4
-  print . length $ hbalTreeNodes undefined 10 -- haskell is very lazy
-  putStr . show . countLeaves $ test5; print . leaves $ test5
-  --print $ 
-  --print $ 
+  print . length $ hBalTRee undefined 4
+  print . length $ hbalTReeNodes undefined 10 -- haskell is very lazy
+  print' . countLeaves $ test5; print . leaves $ test5
+  print' . internals $ test5; print $ atLevel test5 1
+  -- print' $ compTRee 5; print $ isComp (compTRee 50) -- fix compTRee!
+  print $ layout1 test5
+  print $ layout2 test5
+  -- 66 can't be put here
+  print $ (\x -> parseTReeS (parseSTRee x) == x) "a(b(d,e),c(,f(g,)))" -- note: exercise wants Maybe (TRee String), where Nothing is for invalid input
   --print $ 
   --print $ 
