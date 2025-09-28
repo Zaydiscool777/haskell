@@ -45,15 +45,15 @@ isRed = not . isBlack
 parF :: Tree a -> Tree a
 parF = fromJust . par
 
-upar :: Tree a -> Tree a -> Tree a
-upar n p | isNil n = Nil (Just p)
+upar :: Tree a -> Maybe (Tree a) -> Tree a
+upar n p | isNil n = Nil p
 upar a p =
   Node (val a) (isBlack a)
-    (upar (left a) a)
-    (upar (right a) a) (Just p)
+    (upar (left a) (Just a))
+    (upar (right a) (Just a)) p
 
 uPar :: Tree a -> Tree a
-uPar x = upar x (parF x)
+uPar x = upar x (par x)
 
 nodeR :: a -> Bool -> Tree a -> Tree a -> Tree a
 nodeR v c l r = uPar (Node v c l r Nothing)
