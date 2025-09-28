@@ -150,10 +150,8 @@ insert a v = insert' (ninsert' a v)
       uPar $ insert' (b a)
         where
           b = (if onLeft a
-            then
-              left . rotL -- since this is on the parent, we go to the node after rot.
-            else
-              right . rotR) . parF
+            then left . rotL -- since this is on the parent, we go to the node after rot.
+            else right . rotR) . parF
     insert' a | {-isRed (parF a) &&-} isBlack (unc a) && isOuter a = -- case 6
       uPar $ insert' (b (gran a) {colorP = False}) {colorP = True} -- this is like case 2, but w/ rot.
         where b = if onLeft a then rotR else rotL-- since a is outer, this is equal to onLeft (parF a)
