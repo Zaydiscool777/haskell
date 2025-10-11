@@ -12,14 +12,14 @@ lucas = 2:1:zipWith (+) lucas (tail lucas)
 primes :: [Int]
 primes =
   2:filter
-    ((not.).any<$>(((0==).).mod)<*>
-    ((`takeWhile`primes).(>=)
-    .floor.sqrt.fromIntegral)
-  ) [3..]
+    (not.:any<$>(0==).:mod<*>
+    (`takeWhile`primes).(>=)
+    .floor.sqrt.fromIntegral
+  ) [3..] where (.:) = (.) . (.)
 
 part :: Int -> Int -> [[Int]]
--- 1. non-increasing
--- 2. ∀xs|xs∈p(n-x)[x:xs∈p(x)]
+-- 1. non-increasing (thus m)
+-- 2. ∀xs|xs∈p(n-x)(x:xs∈p(x))
 part _ 0 = [[]]
 part m n =
   join (
@@ -52,21 +52,21 @@ diago x = diag 0 0 True x
 kow :: [Int]
 kow = 1:2:drop 2 (concat . zipWith replicate kow . cycle $ [1, 2])
 
-say :: String -> String
-say = join . map (join . (\n -> [show $ length n, singleton $ head n])) . group
+las :: [String]
+las = iterate (join . map (join . (\n -> [show $ length n, singleton $ head n])) . group) "1"
+
+cat :: [Integer]
+cat = 1:map(sum.((zipWith(*)<*>reverse).(`take`cat)))[1..] -- 1:map(conv cat cat)[1..]
 
 main :: IO ()
 main = do
-  print $ take 10 fib
-  print $ take 10 primes
-  print $ part 4 4
-  print $ take 5 <$> take 10 pasc
+  print $ take 15 fib
+  print $ take 15 primes
+  print $ part <*> id $ 5
+  print $ take 7 <$> take 5 pasc
   print $ take 10 lazc
   print $ 10 `chose` 5
   print $ take 30 $ diago pasc
   print $ take 30 kow
-  --look and say
-  --catalan numbers
-
-
-
+  print $ take 6 las
+  print $ take 15 cat

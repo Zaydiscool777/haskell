@@ -15,4 +15,5 @@ ishappy x = floyd (happy x) (happy (happy x))
     floyd a b | a == b = False
     floyd x y = floyd (happy x) (happy (happy y))
 
+main :: IO ()
 main = print $ sum $ take 10000 $ filter ishappy [1..]

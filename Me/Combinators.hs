@@ -7,8 +7,6 @@
 -- id a = a
 -- const a b = b
 -- (x <*> y) z = x z (y z)
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-{-# HLINT ignore "Use fold" #-}
 import Data.Function hiding ((&))
 -- # hiding Data.Function
 -- fix :: (t -> t) -> t
@@ -154,8 +152,7 @@ ror4 :: t1 -> t2 -> t3 -> (t1 -> t2 -> t3 -> t4) -> t4
 ror4 = b' (b' . (b' .: ((.>) .: (.>))))
 
 rol4 :: t1 -> (t2 -> t3 -> t1 -> t4) -> t2 -> t3 -> t4
-rol4 = (.) . flip flip
--- rol4 = b' (.:)
+rol4 = b' (.:)
 
 -- ## 5-fold
 
@@ -273,6 +270,3 @@ where (%) = (succ .) . (*)
 map f . map g <> map (f . g)
 
 -}
-
-
-
