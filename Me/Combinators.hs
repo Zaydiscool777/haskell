@@ -15,6 +15,12 @@ import Data.Function hiding ((&))
 -- applyWhen = flip (bool id)
 -- on :: (i -> i -> x) -> (a -> i) -> a -> a -> x
 -- (op `on` f) x y = f x `op` f y -- on c f a b <> (<//>) a b f c
+import Control.Arrow (Arrow((&&&)))
+-- # hiding Control.Arrow
+-- (f &&& g) x = (f x, g x)
+import Data.Bifunctor (Bifunctor(bimap))
+-- # hiding Data.Bifunctor
+-- bimap f g (a, b) = (f a, g b)
 
 -- # quite common combinators
 
@@ -119,7 +125,7 @@ infixr 2 ~>
 ror2, rol2, swp2 :: is -> (is -> r) -> r
 ror2 = (&)
 rol2 = (&)
-
+-- swp2 is important
 swp2 = (&)
 
 -- ## 3-fold
@@ -195,6 +201,32 @@ infixr 6 ><
 (><) :: (Semigroup a) => a -> a -> a
 (><) = flip (<>)
 
+-- # stolen combinators
+
+-- ## https://webarchive.di.uminho.pt/wiki.di.uminho.pt/twiki/bin/view/Personal/Alcino/PointlessHaskell.html
+
+infix 6  /\
+(/\) :: (a -> b) -> (a -> c) -> a -> (b,c)
+(/\) = (&&&)
+
+infix 7 \/
+(\/) :: (a -> b) -> (c -> d) -> (a,c) -> (b,d)
+(\/) = bimap
+
+-- ## https://wiki.haskell.org/
+
+swing :: (((a -> b) -> b) -> c -> d) -> c -> a -> d
+swing = flip . b'
+{-
+swing map :: forall a b. [a -> b] -> a -> [b]
+swing any :: forall a. [a -> Bool] -> a -> Bool
+swing foldr :: forall a b. b -> a -> [a -> b -> b] -> b
+swing zipWith :: forall a b c. [a -> b -> c] -> a -> [b] -> [c]
+swing find :: forall a. [a -> Bool] -> a -> Maybe (a -> Bool)
+   -- applies each of the predicates to the given value, returning the first predicate which succeeds, if any
+swing partition :: forall a. [a -> Bool] -> a -> ([a -> Bool], [a -> Bool])
+-}
+
 -- # other combinators
 
 -- (<//>) :: a -> a -> (a -> i) -> (i -> i -> x) -> x
@@ -210,10 +242,6 @@ infixr 6 ><
 (/<>/) :: (a -> i) -> (a -> j) -> a -> (i -> j -> x) -> x
 -- (f /<>/ g) a c = f a `c` g a
 (f /<>/ g) a c = (c <$> f <*> g) a
-
-swing :: (((a -> b) -> b) -> c -> d) -> c -> a -> d
-swing = flip . b'
--- eg. swing map :: [a -> b] -> a -> [b] for (a -> b) -> [a] -> [b]
 
 tap :: Monad m => (b -> m a) -> b -> m b
 tap = flip flip (>>) . (/<>/ return)
