@@ -1,3 +1,4 @@
+module Combinators where
 -- # hiding Prelude(???)
 -- flip f a b = f b a
 -- infixr 9 .
@@ -21,6 +22,13 @@ import Control.Arrow (Arrow((&&&)))
 import Data.Bifunctor (Bifunctor(bimap))
 -- # hiding Data.Bifunctor
 -- bimap f g (a, b) = (f a, g b)
+import Data.List (uncons)
+-- # hiding Data.List
+-- uncons (a:b) = Just (a, b)
+-- uncons [] = Nothing
+import Control.Monad ((>=>))
+-- # hiding Control.Monad
+-- (>=>) = (. (=<<)) . (.>)
 
 -- # quite common combinators
 
@@ -252,8 +260,18 @@ cross f g (x, y) = (f x, g y)
 dot :: Int -> (a -> a) -> a -> a
 dot = (.: iterate) . (!!>)
 
+rotl :: [a] -> [a]
+rotl w = maybe w ((((head . tail) w:) . rotl . (head w:)) . snd) (uncons w >>= uncons . snd)
+
+rotr :: [a] -> [a]
+rotr [] = []
+rotr [x] = [x]
+rotr (x:y:z) = (\(y:z) -> y:x:z) (rotr (y:z))
+
+-- 1:2:[]
+
 -- mrconcat :: (Foldable t, Monoid m) => t m -> m
--- mrconcatF = foldr (<>) mempty
+-- mrconcat = foldr (<>) mempty
 
 ----------------------Tips-------------------------
 

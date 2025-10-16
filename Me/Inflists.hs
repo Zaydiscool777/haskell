@@ -3,21 +3,27 @@ import GHC.Base
   (join) -- (>>= id)
 import Data.List
 
-fib :: [Int]
+fib :: [Integer]
 fib = 0:1:zipWith (+) fib (tail fib)
 
-lucas :: [Int]
+lucas :: [Integer]
 lucas = 2:1:zipWith (+) lucas (tail lucas)
 
-primes :: [Int]
+-- uses itself, but cuts before undefined
+primes :: [Integer]
 primes =
   2:filter
     (not.:any<$>(0==).:mod<*>
     (`takeWhile`primes).(>=)
-    .floor.sqrt.fromIntegral
-  ) [3..] where (.:) = (.) . (.)
+    .pred -- floor.sqrt.fromIntegeregral
+  )[3..]where(.:)=(.).(.)
 
-part :: Int -> Int -> [[Int]]
+-- p::[Integer]=2:filter((not.).any<$>((0==).).mod<*>(`takeWhile`p).(>=).pred)[3..]
+
+-- john tromp is really good at this! 
+-- primes' = nubBy(((>1).).gcd)[2..] -- nubBy (\x y -> gcd x y > 1 ) [2..]
+
+part :: Integer -> Integer -> [[Integer]]
 -- 1. non-increasing (thus m)
 -- 2. ∀xs|xs∈p(n-x)(x:xs∈p(x))
 part _ 0 = [[]]
@@ -28,13 +34,13 @@ part m n =
     ) (reverse [1..min m n])
   )
 
-pasc :: [[Int]]
-pasc = [1,1..]:map ((tail.scanl (+) 0).(pasc!!)) [0..]
--- (tail..0) <- pas n (x:xs) = (n + x):pas (n + x) xs
+pasc :: [[Integer]]
+pasc = [1,1..]:map ((tail . scanl (+) 0) . (pasc!!)) [0..]
+-- (tail.scanl(+)0) <- pas n (x:xs) = (n + x):pas (n + x) xs
 
-lazc :: [Int]
+lazc :: [Integer]
 lazc = (1:) $ succ <$> pasc !! 2
-chose :: Int -> Int -> Int
+chose :: Int -> Int -> Integer
 chose = join . (((!!) . (pasc !!)) .) . (-)
 
 diago :: [[a]] -> [a]
@@ -53,7 +59,8 @@ kow :: [Int]
 kow = 1:2:drop 2 (concat . zipWith replicate kow . cycle $ [1, 2])
 
 las :: [String]
-las = iterate (join . map (join . (\n -> [show $ length n, singleton $ head n])) . group) "1"
+-- las = iterate (join . map (join . (\n -> [show $ length n, singleton $ head n])) . group) "1"
+las = iterate (join . map (join . (((:) . show . length) <*> (pure . (:[]) . head))) . group) "1" -- thanks, pointfree.io
 
 cat :: [Integer]
 cat = 1:map(sum.((zipWith(*)<*>reverse).(`take`cat)))[1..] -- 1:map(conv cat cat)[1..]
