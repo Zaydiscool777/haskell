@@ -43,6 +43,10 @@ infixr 1 & -- a & b & f = f a b = (f $ a) $ b
 (&) :: f -> (f -> v) -> v
 (&) = flip id -- to be more precise, flip ($)
 
+infixl 8 .:.
+(.:.) :: (b -> c) -> (i -> j -> a -> b) -> i -> j -> a -> c
+(.:.) = (.:) . (.)
+
 bool :: p -> p -> Bool -> p
 bool t f c = if c then t else f
 
@@ -69,7 +73,7 @@ w :: (x -> x -> r) -> x -> r
 w = flip s id
 
 -- apply with flipped argument order: it's a little weird, but somewhat common.
--- b' f g x = f (g x)
+-- b' f g x = f (g x) -- b' a b = a ($ b)?
 b' :: (((a -> v) -> v) -> c) -> a -> c
 b' = (. (&))
 -- note: since a $ b $ c = (a . b) c, you could develop an
@@ -108,25 +112,6 @@ infixl 0 |<
 
 fl :: (a -> b -> c) -> b -> a -> c
 fl = b' . (.>)
-
--- # woke combinators (meta-, sorry if it's vulgar)
-
-{-
-      foo  ::      A      -> B -> C
-    albert :: X -> A
-                beth :: Y -> B
-                         carol :: C -> Z
-      bar  :: X             -> Y    -> Z
-bar = foo $:: albert ~> beth ~>        carol
--}
-
-infixl 1 $::
-($::) :: (xins -> xret) -> ((xins -> xret) -> (ins -> ret)) -> ins -> ret
-($::) = (&)
-
-infixr 2 ~>
-(~>) :: (ins -> pin) -> (pout -> out) -> ((pin -> pout) -> (ins -> out))
-(~>) = ((. (.)) . (.)) . (.>)
 
 -- # swapping applicators
 
@@ -175,7 +160,7 @@ ror5 = b' (b' . (b' .: (((b' . (.>)) .:) . ((.>) .: (.>)))))
 -- a % (b c) <> (%) a (b c) <> ((a %) . b) c
 
 rol5 :: t1 -> (t2 -> t3 -> t4 -> t1 -> t5) -> t2 -> t3 -> t4 -> t5
-rol5 = b' ((.) . (.) . (.))
+rol5 = b' (.:.)
 
 -- ## n-fold?
 
@@ -223,6 +208,7 @@ infix 7 \/
 
 -- ## https://wiki.haskell.org/
 
+-- by Cale
 swing :: (((a -> b) -> b) -> c -> d) -> c -> a -> d
 swing = flip . b'
 {-
@@ -235,11 +221,82 @@ swing find :: forall a. [a -> Bool] -> a -> Maybe (a -> Bool)
 swing partition :: forall a. [a -> Bool] -> a -> ([a -> Bool], [a -> Bool])
 -}
 
+-- # woke combinators (meta-, sorry if it's vulgar)
+
+{-
+      foo  ::      A      -> B -> C
+    albert :: X -> A
+                beth :: Y -> B
+                         carol :: C -> Z
+      bar  :: X      -> Y           -> Z
+bar = foo $:: albert ~> beth ~>   carol
+-}
+
+infixl 1 $::
+($::) :: (xins -> xret) -> ((xins -> xret) -> (ins -> ret)) -> ins -> ret
+($::) = (&)
+
+infixr 2 ~>
+(~>) :: (ins -> pin) -> (pout -> out) -> ((pin -> pout) -> (ins -> out))
+(~>) = ((. (.)) . (.)) . (.>)
+
+-- ## https://combinatorylogic.com/table.html
+
+ki :: a -> b -> b
+ki = k i
+
+b1 :: (b -> a) -> (c -> d -> b) -> c -> d -> a
+b1 = (.:)
+
+b2 :: (b -> a) -> (c -> d -> e -> b) -> c -> d -> e -> a
+b2 = (.:.)
+
+b3 :: (b -> a) -> (c -> b) -> (d -> c) -> d -> a
+b3 = ($:) . (.)
+
+vs :: (b -> c -> a) -> (c -> b) -> c -> a
+vs = w .: (.)
+
+d :: (a -> j -> x) -> a -> (i -> j) -> i -> x
+d = ($:)
+
+zd :: (b -> d -> c) -> (a -> b) -> a -> d -> c
+zd = (.)
+
+ph :: (b -> c -> a) -> (d -> b) -> (d -> c) -> d -> a
+ph a = (a &) .:. (/<>/)
+
+ps :: (Functor f1, Functor f2) => (f1 i -> f2 i -> x) -> (a -> i) -> f1 a -> f2 a -> x
+ps a b c d = (c <//> d) b a
+
+d1 :: (b -> c -> d -> a) -> b -> c -> (e -> d) -> e -> a
+d1 = (($:) .)
+
+d2 :: (b -> d -> a) -> (c -> b) -> c -> (e -> d) -> e -> a
+d2 = (($:) $:)
+
+eg :: (b -> c -> a) -> b -> (d -> e -> c) -> d -> e -> a
+eg = ((.:) .)
+
+gg :: (b -> e -> a) -> (c -> d -> b) -> c -> d -> e -> a
+gg = (.:)
+
+en :: (b -> c -> a) -> b -> (b -> d -> c) -> d -> a
+en = flip (flip . (/<>/ (&)) . ($:)) (.)
+
+wn :: (b -> d -> a) -> (c -> d -> b) -> c -> d -> a
+wn = (.) . (w .) . (.)
+
+px :: (b -> c -> a) -> (d -> e -> b) -> (d -> e -> c) -> d -> e -> a
+px = ph . ph
+
+be :: (al -> a -> b) -> (d -> e -> al) -> d -> e -> (g -> le -> a) -> g -> le -> b
+be = eg eg
+
 -- # other combinators
 
 -- (<//>) :: a -> a -> (a -> i) -> (i -> i -> x) -> x
-(<//>) :: (Functor f, Functor g) =>
-  f a -> g a -> (a -> i) -> (f i -> g i -> x) -> x
+(<//>) :: (Functor f1, Functor f2) => f1 a -> f2 a -> (a -> i) -> (f1 i -> f2 i -> x) -> x
 (a <//> b) f c = (c <$> (<$> a) <*> (<$> b)) f
 -- (a <//> b) f c = f a `c` f b
 -- (a <//> b) f = b <//> a ((&) . f) (.)
