@@ -46,10 +46,6 @@ reconst' pres path cur =
     Nothing -> path
     Just (Node pre _) -> reconst' pres (pre:path) pre
 
--- swap keys and values
-invert :: Ord k => M.Map a k -> M.Map k a
-invert x = M.fromList (map swap (M.toList x))
-
 aStar :: [Int]
 aStar = -- initialize loop
   aStar' M.empty (S.singleton start) (M.fromList [(start, 0)]) (M.fromList [(start, h start)]) 
@@ -69,10 +65,12 @@ aStarW pres open fs gs =
     else
       aStar' npres nopen nfs ngs
     where
-      cur :: Nod = snd (M.findMin (invert fs))
+      cur :: Nod = fst (M.findMin (M.filterWithKey (\k _ -> S.member k open) fs))
       openwc = S.delete cur open
+      exfs = M.delete cur fs
+      exgs = M.delete cur gs
       (npres, nopen, nfs, ngs) =
-        foldr (aStarF cur) (pres, openwc, fs, gs) (c cur)
+        foldr (aStarF cur) (pres, openwc, exfs, exgs) (c cur)
 
 -- for-loop body, uses foldr
 aStarF :: Nod -> -- Nod -> Folder Nod State?
