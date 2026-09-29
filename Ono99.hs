@@ -433,6 +433,13 @@ ipl = len
     len (Node _ c) = sum (map (succ . len) c)
 
 
+
+
+
+
+
+
+
 ---------------------------------------------------
 
 test = "abcdefghi"
@@ -522,5 +529,7 @@ main = do
   print $ layout2 test5
   -- 66 can't be put here
   print $ (\x -> parseTReeS (parseSTRee x) == x) "a(b(d,e),c(,f(g,)))" -- note: exercise wants Maybe (TRee String), where Nothing is for invalid input
+  print $ inorder test5; 
+  --print $ 
   --print $ 
   --print $ 

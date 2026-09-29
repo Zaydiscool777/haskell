@@ -1,5 +1,6 @@
 
 import Data.Maybe
+import Data.List (sort)
 import Debug.Trace
 
 data Tree a =
@@ -93,10 +94,10 @@ unc :: (Eq a) => Tree a -> Tree a
 unc x = ((if onRight (parF x) then left else right) . parF) x
 
 rotR :: Tree a -> Tree a
-rotR a = uPar (b {right = a {left = nilR}}) where b = left a
+rotR a = uPar (b {right = a {left = right b}}) where b = left a
 
 rotL :: Tree a -> Tree a
-rotL a = uPar (b {left = a {right = nilR}}) where b = right a
+rotL a = uPar (b {left = a {right = left b}}) where b = right a
 
 search :: (Eq a, Ord a) => Tree a -> a -> Maybe (Tree a)
 search a v
@@ -114,7 +115,7 @@ isOuter = not . isInner
 root :: Tree a -> Tree a
 root x
   | isNothing (par x) = x
-  | otherwise = fromJust (par x)
+  | otherwise = root (fromJust (par x))
 
 {-b arrow=aft- g
  / \ er rot.  / \
@@ -123,11 +124,11 @@ d   a->    <-p   u
       c    n-}
 
 insert :: (Eq a, Ord a) => Tree a -> a -> Tree a
-insert a v = insert' (ninsert' a v)
+insert a v = root (insert' (ninsert' a v))
   where
     insert' :: (Eq a) => Tree a -> Tree a -- Ord a?
     insert' a
-      | isRoot a = uPar a -- case 1
+      | isRoot a = (uPar a) {colorP = True} -- case 1
       | isBlack (parF a) = uPar a -- case 3
       | isRoot (parF a) {-&& isRed (parF a)-} = uPar $ a {par = Just (parF a) {colorP = True}} -- case 4
     insert' a | {-isRed (parF a) &&-} isRed (unc a) = -- case 2
@@ -158,4 +159,78 @@ insert a v = insert' (ninsert' a v)
         where b = if onLeft a then rotR else rotL-- since a is outer, this is equal to onLeft (parF a)
 
 main :: IO ()
-main = return ()
+main = mapM_ runSequence testSequences >> putStrLn "All red-black tree tests passed."
+  where
+    testSequences =
+      [ []
+      , [1]
+      , [1, 2, 3]
+      , [3, 2, 1]
+      , [3, 1, 2]
+      , [1, 3, 2]
+      , [10, 5, 15, 1, 7, 12, 18, 0, 2, 6, 8, 11, 13, 17, 20]
+      , [7, 3, 18, 10, 22, 8, 11, 26, 2, 6, 13]
+      ]
+
+    runSequence values = checkPrefixes nilR [] values
+
+    checkPrefixes tree inserted remaining = do
+      assert inserted "root is black" (isRoot tree && isBlack tree)
+      assert inserted "parent links" (parentLinksValid tree)
+      assert inserted "red-black invariants" (redBlackValid tree)
+      assert inserted "inserted values" (treeValues tree == sort inserted)
+      assert inserted "search finds every inserted value" (all (isJust . search tree) inserted)
+      assert inserted "search misses absent values" (all (not . isJust . search tree) [-999, 999])
+      case remaining of
+        [] -> pure ()
+        value : rest ->
+          checkPrefixes (insert tree value) (value : inserted) rest
+
+    assert inserted label condition =
+      if condition
+        then pure ()
+        else ioError (userError ("Failed after " ++ show inserted ++ ": " ++ label))
+
+    redBlackValid tree =
+      case inspect Nothing Nothing tree of
+        Just _ -> True
+        Nothing -> False
+
+    inspect lower upper node
+      | isNil node = Just (1, [])
+      | maybe False (>= val node) lower = Nothing
+      | maybe False (<= val node) upper = Nothing
+      | otherwise = do
+          (leftHeight, leftValues) <- inspect lower (Just (val node)) (left node)
+          (rightHeight, rightValues) <- inspect (Just (val node)) upper (right node)
+          if leftHeight /= rightHeight ||
+              (isRed node && (isRed (left node) || isRed (right node)))
+            then Nothing
+            else Just
+              ( leftHeight + if isBlack node then 1 else 0
+              , leftValues ++ [val node] ++ rightValues
+              )
+
+    treeValues tree =
+      case inspect Nothing Nothing tree of
+        Just (_, values) -> values
+        Nothing -> []
+
+    parentLinksValid node
+      | isNil node = True
+      | otherwise =
+          parentMatches (left node) node &&
+          parentMatches (right node) node &&
+          parentLinksValid (left node) &&
+          parentLinksValid (right node)
+
+    parentMatches child parentNode =
+      case par child of
+        Just actualParent -> sameStructure actualParent parentNode
+        Nothing -> False
+
+    sameStructure (Nil _) (Nil _) = True
+    sameStructure (Node value color leftTree rightTree _) (Node otherValue otherColor otherLeft otherRight _) =
+      value == otherValue && color == otherColor &&
+        sameStructure leftTree otherLeft && sameStructure rightTree otherRight
+    sameStructure _ _ = False
