@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-x-partial #-}
 -- https://wiki.haskell.org/index.php?title=99_questions/
 import System.CPUTime (getCPUTime) -- timer
 import Control.Exception (evaluate) -- timer
@@ -304,7 +305,8 @@ atLevel Empty _ = []; atLevel (Branch v _ _) 0 = [v]
 atLevel (Branch _ a b) x = atLevel a (pred x) ++ atLevel b (pred x)
 
 compTRee :: Int -> TRee Char
-compTRee x = Empty -- !
+compTRee 0 = Empty
+compTRee x = Branch 'x' (compTRee (pred x)) (compTRee (pred x))
 isComp :: TRee a -> Bool
 isComp Empty = True
 isComp (Branch _ l r) = abs (len l - len r) <= 1 && isComp l && isComp r
@@ -366,15 +368,15 @@ given the preorder and inorder traversals of a binary tree, if all elements are 
 preorder: root, left, right
 inorder: left, root, right
 we can take the first element of preorder as root, then split inorder at that element to get left and right subtrees.
-since the element after it the first preorder part of the right subtree,
-we can use it to split preorder into left and right subtrees, and run recursively.
+since the left of the element should have the same amount of nodes on its left in both orderings,
+we can split the preorder according to that to get its left and right subtrees.
 -} -- this also works with postorder, just take the last instead of first
 constPreIn [] [] = Empty; constPreIn x y | length x /= length y = error "different sizes"
 constPreIn p i = Branch v l r
   where
-    v = head p
-    (a, _:b) = span (/=v) (tail p)
-    (d, e) = span (/=v) i
+    (v, n) = fromJust $ uncons p
+    (d, _:e) = span (/=v) i
+    (a, b) = split n (length e)
     (l, r) = (constPreIn a d, constPreIn b e)
 constPrePost :: (Eq a) => [a] -> [a] -> TRee a -- bonus!
 {-
@@ -395,18 +397,14 @@ constPrePost p o = Branch v l r
     r = constPrePost d f
 
 parseDTRee :: String -> TRee Char
-parseDTRee "." = Empty; parseDTRee "" = Empty
-parseDTRee (v:x) = Branch v (parseDTRee l) (parseDTRee r)
+parseDTRee = fst . go
   where
-    a:b = x
-    (l, c:d) = go [a] b 2
-    (r, _) = go [c] d 2
-    go :: String -> String -> Int -> (String, String)
-    go x "" _ = ("", "") -- not (x, "")
-    go x r 0 = (reverse x, r)
-    go x ('.':r) n = go ('.':x) r (pred n)
-    go x (y:r) n = go (y:x) r (succ n)
-parseTReeD :: TRee Char -> String
+    go ('.':x) = (Empty, x)
+    go (a:b) = (Branch a (fst c) (fst d), snd d)
+      where
+        c = go b
+        d = go (snd c)
+parseTReeD :: TRee Char -> [Char]
 parseTReeD Empty = "."
 parseTReeD (Branch v l r) = v : parseTReeD l ++ parseTReeD r
 -- 70-73
@@ -432,7 +430,8 @@ ipl = len
     len (Node _ []) = 0
     len (Node _ c) = sum (map (succ . len) c)
 
-
+bottom_up :: Tree Char -> [Char]
+bottom_up (Node x y) = concatMap bottom_up y ++ [x] -- (foldr ((++) . bottom_up) [] y) ++ [x]
 
 
 
@@ -447,6 +446,7 @@ test2 = "aaabccddaddee"
 test3 = ["ax", "bx", "cx", "defg", "h", "j", "lmn"]
 test4 = 4268880 -- 66389621760
 test5 = constTRee [5, 3, 18, 1, 4, 12, 21]
+test6 = Node 'a' [Node 'f' [Node 'g' []],Node 'c' [],Node 'b' [Node 'd' [],Node 'e' []]]
 
 timer :: a -> IO (Double, a)
 timer action = do
@@ -528,8 +528,14 @@ main = do
   print $ layout1 test5
   print $ layout2 test5
   -- 66 can't be put here
-  print $ (\x -> parseTReeS (parseSTRee x) == x) "a(b(d,e),c(,f(g,)))" -- note: exercise wants Maybe (TRee String), where Nothing is for invalid input
-  print $ inorder test5; 
+  print . parseTReeS $ parseSTRee "a(b(d,e),c(,f(g,)))" -- note: exercise wants Maybe (TRee String), where Nothing is for invalid input
+  print $ (preorder test5, inorder test5)
+  print $ constPreIn (preorder test5) (inorder test5)
+  print . parseTReeD $ parseDTRee "abd..e..c.fg..."
+  print $ nnodes test6
+  print . parseTreeS $ parseSTree "afg^^c^bd^e^^^"
+  print $ ipl test6
+  print $ bottom_up test6
   --print $ 
   --print $ 
   --print $ 
