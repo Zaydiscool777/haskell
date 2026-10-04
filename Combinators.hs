@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-x-partial #-} -- only because of rotl
 module Combinators where
 -- # hiding Prelude(???)
 -- flip f a b = f b a

@@ -1,14 +1,21 @@
 {-# OPTIONS_GHC -Wno-x-partial #-}
--- https://wiki.haskell.org/index.php?title=99_questions/
-import System.CPUTime (getCPUTime) -- timer
-import Control.Exception (evaluate) -- timer
-import System.Random (randomRIO) -- -package random
-import qualified Data.Map as M -- -package containers
+-- https://wiki.haskell.org/index.php?title=H-99:_Ninety-Nine_Haskell_Problems
+import System.CPUTime (getCPUTime)
+import Control.Exception (evaluate)
+import System.Random (randomRIO)
+import qualified Data.Map as M
 import Data.Bifunctor (first, second)
-import Data.List (findIndex, sort, sortBy, sortOn, uncons)
+import Data.List (findIndex, sort, sortBy, sortOn, uncons, find, delete, minimumBy,
+  permutations, (\\), inits, tails, nubBy, intersperse)
 import Data.Tuple (swap)
-import Data.Maybe (fromJust)
-import Data.Tree as T -- -package containers
+import Data.Maybe (fromJust, catMaybes, isNothing, isJust, listToMaybe)
+import Data.Tree (Tree(Node), drawForest)
+import Control.Monad (foldM, join)
+import Data.Ord (comparing)
+import Debug.Trace (traceShow, traceShowId)
+import Data.Char (isLowerCase, isDigit)
+import Control.Applicative ((<|>))
+
 -- 1-10
 
 myLast :: [a] -> a
@@ -151,7 +158,7 @@ lsort :: [[a]] -> [[a]]
 lsort = sortOn length
 lfsort :: [[a]] -> [[a]] -- failed
 lfsort l = sortBy (\xs ys -> compare (frequency (length xs) l) (frequency (length ys) l)) l
-  where frequency len l = length (filter (\x -> length x == len) l)
+  where frequency len l = length [x | x <- l, length x == len]
 -- 29 and 30 do not exist
 -- 31-41
 isPrime :: Int -> Bool
@@ -167,11 +174,11 @@ coprime :: Int -> Int -> Bool
 coprime = ((1==) .) . gcd -- or (1==) .: gcd where .: = (.) . (.)
 
 totient :: Int -> Int
-totient x = length (filter id (map (coprime x) [1..(pred x)]))
+totient x = length [s | s <- (map (coprime x) [1..(pred x)]), s]
 
 primeFactors :: Int -> [Int]
 primeFactors y = if null x then [] else head x:primeFactors (div y (head x))
-  where x = filter ((0 ==) . mod y) [2..(pred y)]
+  where x = [z | z <- [2..(pred y)], (y `mod` z) == 0]
 
 primeFactorsMult :: Int -> [(Int, Int)]
 primeFactorsMult = map swap . encode . primeFactors
@@ -404,7 +411,7 @@ parseDTRee = fst . go
       where
         c = go b
         d = go (snd c)
-parseTReeD :: TRee Char -> [Char]
+parseTReeD :: TRee Char -> String
 parseTReeD Empty = "."
 parseTReeD (Branch v l r) = v : parseTReeD l ++ parseTReeD r
 -- 70-73
@@ -430,12 +437,219 @@ ipl = len
     len (Node _ []) = 0
     len (Node _ c) = sum (map (succ . len) c)
 
-bottom_up :: Tree Char -> [Char]
-bottom_up (Node x y) = concatMap bottom_up y ++ [x] -- (foldr ((++) . bottom_up) [] y) ++ [x]
+bottom_up :: Tree Char -> String
+bottom_up (Node x y) = concatMap bottom_up y ++ [x]
 
+displayL :: Tree Char -> String
+displayL (Node x []) = [x]
+displayL (Node x y) = '(' : x : concatMap ((' ':) . displayL) y ++ ")"
 
+-- Data.Graph is in adjacency-list form, but it only supports Int.
+-- despite the fact that there is no function that doesnt require Eq a, there is no way to enforce it either
+data Graph a = Graph [a] [(a, a)] deriving (Eq, Ord, Show)
+data GRaph a = GRaph [(a, [a])] deriving (Eq, Ord, Show)
+-- suprisingly useful function
+gadj :: Eq a => [(a, a)] -> a -> [a]; gadj b x = [i | (i, j) <- b, j == x] ++ [j | (i, j) <- b, i == x]
+-- k in both of these is true if bidirectional and false if directional
+graphToAdj :: Eq a => Graph a -> Bool -> GRaph a
+graphToAdj (Graph a b) k = GRaph [(x, (if k then [i | (i, j) <- b, j == x] else []) ++ [j | (i, j) <- b, i == x]) | x <- a]
+adjToGraph :: Eq a => GRaph a -> Bool -> Graph a
+adjToGraph (GRaph x) k = Graph (map fst x) (if k then go [] (map fst x) x else [(a, c) | (a, b) <- x, c <- b])
+  where
+    go _ [] _ = []
+    go z (x:r) y = [(x, a) | (a, b) <- y, x `elem` b, not (a `elem` z)] ++ go (x:z) r y
 
+graphPaths :: Eq a => a -> a -> GRaph a -> [[a]]
+graphPaths x y (GRaph z) = go [] x y z
+  where
+    go _ x y _ | x == y = [[x]]
+    go w x y z = concatMap (\a -> map (x:) (go (x:w) a y z)) -- w blocks revisiting nodes
+      ((filter (not . flip elem w) . snd . fromJust) (find ((x ==) . fst) z))
 
+graphCycle :: Eq a => a -> GRaph a -> [[a]]
+graphCycle x (GRaph z) = go False [] x x z
+  where
+    go :: Eq a => Bool -> [a] -> a -> a -> [(a, [a])] -> [[a]]
+    go True _ x y _ | x == y = [[x]]
+    go k w x y z = concatMap (\a -> map (x:) (go True (if k then (x:w) else []) a y z))
+      ((filter (not . flip elem w) . snd . fromJust) (find ((x ==) . fst) z))
+
+graphTrees :: Eq a => Graph a -> [Tree a] -- ai
+graphTrees (Graph vertices edges) =
+  concatMap (try edges) (filter (not . null) (subsets vertices))
+  where
+    subsets :: [a] -> [[a]]
+    subsets []     = [[]]
+    subsets (x:xs) = subsets xs ++ map (x:) (subsets xs)
+
+    try :: Eq a => [(a, a)] -> [a] -> [Tree a]
+    try _ [] = []
+    try es vs =
+      [ t
+      | x <- subsets
+          [ e | e@(a, b) <- es, a `elem` vs, b `elem` vs ]
+      , length x == pred (length vs)
+      , Just (t, seen) <- [grow [head vs] (head vs) x]
+      , all (`elem` seen) vs
+      ]
+
+    grow :: Eq a => [a] -> a -> [(a, a)] -> Maybe (Tree a, [a])
+    grow seen n es = do
+      (seen', cs) <- foldM add (seen, []) (gadj es n)
+      Just (Node n cs, seen')
+      where
+        add (visited, cs) next
+          | next `elem` visited = Just (visited, cs)
+          | otherwise = do
+              (c, visited') <- grow (next:visited) next es
+              Just (visited', c:cs)
+
+data GRAph a = GRAph [a] [(a, a, Int)] deriving (Eq, Ord, Show)
+graphPrim :: Eq a => GRAph a -> [(a, a, Int)] -- they want this instead of a Tree?
+graphPrim (GRAph (n:nodes) weights) = go [n] nodes (map (\(x, y, z) -> ((x, y), z)) weights) []
+  where
+    go :: Eq a => [a] -> [a] -> [((a, a), Int)] -> [(a, a, Int)] -> [(a, a, Int)]
+    -- nodes in tree, nodes not in tree, weights, and tree itself
+    go _ [] _ x = x
+    go a b e t = go (r:a) (r `delete` b) e ((mx, my, mc):t)
+      where
+        ((mx, my), mc) = minimumBy (comparing snd) (
+          [n | n@((x, y), _) <- e, x `elem` a, y `elem` b] ++
+          [n | n@((x, y), _) <- e, x `elem` b, y `elem` a])
+        r = if mx `elem` b then mx else my
+
+graphIso :: Ord a => Graph a -> Graph a -> Bool
+graphIso (Graph a c) (Graph b d)
+  | length a /= length b = False
+  | length c /= length d = False
+graphIso (Graph a b) (Graph c d) = [] /= [x | Just x <- map repl poss, ssort x == ssort d]
+  where
+    poss = map (zip a) (permutations c)
+    repl x = sequence (map (\(i, j) -> do
+      i' <- lookup i x
+      j' <- lookup j x
+      Just (i', j')
+      ) b)
+    ssort = sortOn fst . sortOn snd -- radix sort
+
+degree :: Eq a => Graph a -> a -> [a]
+degree (Graph _ x) = gadj x
+descDeg :: Eq a => Graph a -> [a]
+descDeg (Graph x y) = sortOn (negate . length . gadj y) x
+kColor :: forall a. Eq a => Graph a -> [(a, Int)]
+kColor z@(Graph _ n) = go (descDeg z) 0 []
+  where
+    go :: Eq a => [a] -> Int -> [(a, Int)] -> [(a, Int)]
+    go [] _ x = x
+    go (x:xs) c t = go xs c' ((x, c'):t)
+      where
+        j = catMaybes (map (`lookup` t) (gadj n x))
+        c' = succ (maximum ((-1):j))
+
+depthFirst :: forall a. Eq a => GRaph a -> a -> [a]
+depthFirst (GRaph e) s = go [s] [] -- semi-ai
+  where
+    go :: Eq a => [a] -> [a] -> [a]
+    go [] visited = reverse visited
+    go (v:vs) visited
+      | v `elem` visited = go vs visited
+      | otherwise = go (filter (`notElem` (v:visited)) (maybe [] id (lookup v e)) ++ vs) (v:visited)
+
+connComp :: Eq a => GRaph a -> [[a]]
+connComp g@(GRaph e) = go (map fst e)
+  where
+    go [] = []
+    go (x:xs) = let a = depthFirst g x in a:go (xs \\ a)
+
+bipartite :: Eq a => Graph a -> Bool
+bipartite = (< 2) . maximum . map snd . kColor
+-- 90-94
+queens :: Int -> [[Int]]
+queens n = filter test (permutations [1..n])
+  where
+    test x = isNothing $ find (\(i, j) -> abs (i - j) == abs (x !! pred i - x !! pred j)) [(i, j) | i <- [1..n], j <- [1..n], i /= j]
+
+knights :: Int -> [[(Int, Int)]]
+knights n = go [] (1, 1)
+  where
+    go :: [(Int, Int)] -> (Int, Int) -> [[(Int, Int)]]
+    go x n = let
+        p = n:x
+        next = filter (`notElem` p) (move n)
+      in if null next
+         then [reverse p]
+         else concatMap (go p) next
+    move :: (Int, Int) -> [(Int, Int)]
+    move (x, y) = [(x', y') | dx <- [-2, -1, 1, 2], dy <- [-2, -1, 1, 2], abs dx /= abs dy,
+      let (x', y') = (x + dx, y + dy), x' > 0, x' <= n, y' > 0, y' <= n]
+
+vonKoch :: Graph Int -> [[Int]] -- namely nodes
+-- it is possible to give 1-n to nodes and 1-(n-1) to edges such that
+-- the value of an edge is the difference of the values of its nodes.
+vonKoch (Graph x y) | pred (length x) /= length y = []
+vonKoch (Graph nodes e) = catMaybes [test a b | a <- permutations [1..length nodes],
+  b <- permutations [1..pred (length nodes)]]
+  where
+    repl x = sequence . map (\(i, j) -> do
+      i' <- lookup i x
+      j' <- lookup j x
+      Just (i', j'))
+    test :: [Int] -> [Int] -> Maybe [Int]
+    test a b = do
+      let a' = zip nodes a
+      b' <- repl a' e
+      let c = sort (map (\(i, j) -> abs (i - j)) b')
+      if c == [1..pred (length nodes)] then Just a else Nothing
+
+data Math = N Int | Plus Math Math | Minus Math Math | Mult Math Math | Div Math Math deriving (Eq, Show)
+arith :: [Int] -> [(Math, Math)]
+-- e.g. [0,2,3,5] -> 0 + 2 + 3 = 5 and 0 - 2 = 3 - 5 but NOT 3 + 2 = 5 + 0
+arith nums = [(a', b') | (a, b) <- q nums, a' <- poss a, b' <- poss b, eval a' == eval b']
+  where
+    q x = (init . tail) (zip (inits x) (tails x))
+    poss :: [Int] -> [Math]
+    poss [x] = [N x]
+    poss x = [f a' b' | (a, b) <- q x, a' <- poss a, b' <- poss b, f <- [Plus, Minus, Mult, Div]]
+    eval :: Math -> Rational
+    eval (N x) = fromIntegral x
+    eval (Plus a b) = eval a + eval b
+    eval (Minus a b) = eval a - eval b
+    eval (Mult a b) = eval a * eval b
+    eval (Div a b) = eval a / eval b
+
+regular :: Int -> Int -> [Graph Int]
+regular k n | n == 0 || k == 0 || n <= k || (odd n && odd k) = []
+regular k n = nubBy graphIso [Graph [1..n] x | x <- poss, test x]
+  where
+    poss :: [[(Int, Int)]] -- list of edge-lists
+    poss = [[(x !! i, x !! j) | (i, j) <- [(a, b) | a <- [0..pred n], b <- [0..pred n], a /= b]] | x <- permutations [1..n]]
+    test :: [(Int, Int)] -> Bool
+    test x = all (== k) (map (length . gadj x) (map fst x ++ map snd x))
+-- 94-99
+fullWords :: Int -> String
+fullWords x = (concat . intersperse "-") [fromJust (lookup i
+  (zip "0123456789" ["zero","one","two","three","four","five","six","seven","eight","nine"])) | i <- show x] 
+
+parse :: String -> Bool
+parse = isJust . parse'
+  where
+    parse' x = do
+      (_, y) <- letter x
+      case y of
+        "" -> Just ()
+        _ -> loop y
+    loop x = do
+      (_, a) <- any' [hyphen, cont] x
+      (_, b) <- any' [letter, number] a
+      case b of
+        "" -> Just ()
+        _ -> loop b
+    build f x = uncons x >>= (\y -> if f (fst y) then Just y else Nothing)
+    any' f x = join (listToMaybe (map ($ x) f))
+    letter = build isLowerCase
+    number = build isDigit
+    hyphen = build (== '-')
+    cont = Just . (' ',)
 
 
 
@@ -447,6 +661,13 @@ test3 = ["ax", "bx", "cx", "defg", "h", "j", "lmn"]
 test4 = 4268880 -- 66389621760
 test5 = constTRee [5, 3, 18, 1, 4, 12, 21]
 test6 = Node 'a' [Node 'f' [Node 'g' []],Node 'c' [],Node 'b' [Node 'd' [],Node 'e' []]]
+test7 = Graph [1..6] [(1,2),(2,3),(1,3),(3,4),(4,2),(5,6)]
+test8 = GRAph [1,2,3,4,5] [(1,2,12),(1,3,34),(1,5,78),(2,4,55),(2,5,32),(3,4,61),(3,5,44),(4,5,93)]
+test9 = graphIso
+  (Graph [1..8] [(1,5),(1,6),(1,7),(2,5),(2,6),(2,8),(3,5),(3,7),(3,8),(4,6),(4,7),(4,8)])
+  (Graph [1..8] [(1,2),(1,4),(1,5),(6,2),(6,5),(6,7),(8,4),(8,5),(8,7),(3,2),(3,4),(3,7)])
+test10 = Graph [1..7] [(1,4),(2,4),(3,4),(5,6),(6,3),(7,3)]
+
 
 timer :: a -> IO (Double, a)
 timer action = do
@@ -464,6 +685,7 @@ printM = (>>= print)
 
 main :: IO ()
 main = do
+  --{-
   print $ myLast test
   print $ myButLast test
   print $ elementAt test 6
@@ -536,6 +758,23 @@ main = do
   print . parseTreeS $ parseSTree "afg^^c^bd^e^^^"
   print $ ipl test6
   print $ bottom_up test6
+  print $ displayL test6
+  print $ adjToGraph (graphToAdj test7 True) True
+  print . graphPaths 1 4 $ graphToAdj test7 False
+  print . graphCycle 2 $ graphToAdj test7 False
+  putStr . drawForest $ (map . fmap) show (graphTrees test7)
+  print $ graphPrim test8
+  print $ test9
+  print $ kColor test7
+  print $ depthFirst (graphToAdj test7 True) 1
+  print $ connComp (graphToAdj test7 True)
+  print $ (queens 8) !! 1
+  -- print $ vonKoch test10 !! 16 -- slow
+  -- print $ arith [2, 3, 5, 7, 11] !! 6
+  print $ regular 2 5 -- fix!
+  print $ fullWords test4
+  print $ parse "a1-b"
   --print $ 
   --print $ 
   --print $ 
+  --}

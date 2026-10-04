@@ -1,7 +1,7 @@
+{-# OPTIONS_GHC -Wno-x-partial #-}
 -- pointfree.io
-import GHC.Base
-  (join) -- (>>= id)
-import Data.List
+import GHC.Base (join) -- (>>= id)
+import Data.List (group)
 
 fib :: [Integer]
 fib = 0:1:zipWith (+) fib (tail fib)
