@@ -7,7 +7,7 @@ for i p f job =
     else
         return ()
 myInits :: [a] -> [[a]] -- inits [1,2,3] = [[],[1],[1,2],[1,2,3]]
-myInits xs = map reverse . scanl (flip (:)) [] $ xs -- $ has low precedence
+myInits = map reverse . scanl (flip (:)) []
 dollarSignExample = map ($ 2) [(2*), (4*), (8*)]
 addPair = uncurry (+) -- curry DOES exist, but all functions are already curried
 applyPair = uncurry ($)

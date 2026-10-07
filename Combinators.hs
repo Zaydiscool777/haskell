@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -Wno-x-partial #-} -- only because of rotl
 module Combinators where
--- # hiding Prelude(???)
+-- # hiding Prelude(???) (only some)
 -- flip f a b = f b a
 -- infixr 9 .
 -- (a . b) c = a (b c)
@@ -9,7 +9,6 @@ module Combinators where
 -- id a = a
 -- const a b = b
 -- (x <*> y) z = x z (y z)
-import Data.Function hiding ((&))
 -- # hiding Data.Function
 -- fix :: (t -> t) -> t
 -- fix f = let x = f x in x
@@ -20,13 +19,6 @@ import Data.Function hiding ((&))
 import Control.Arrow (Arrow((&&&)))
 -- # hiding Control.Arrow
 -- (f &&& g) x = (f x, g x)
-import Data.Bifunctor (Bifunctor(bimap))
--- # hiding Data.Bifunctor
--- bimap f g (a, b) = (f a, g b)
-import Data.List (uncons)
--- # hiding Data.List
--- uncons (a:b) = Just (a, b)
--- uncons [] = Nothing
 import Control.Monad ((>=>))
 -- # hiding Control.Monad
 -- (>=>) = (. (=<<)) . (.>)
@@ -205,7 +197,7 @@ infix 6  /\
 
 infix 7 \/
 (\/) :: (a -> b) -> (c -> d) -> (a,c) -> (b,d)
-(\/) = bimap
+(\/) = cross
 
 -- ## https://wiki.haskell.org/
 
@@ -319,7 +311,8 @@ dot :: Int -> (a -> a) -> a -> a
 dot = (.: iterate) . (!!>)
 
 rotl :: [a] -> [a]
-rotl w = maybe w ((((head . tail) w:) . rotl . (head w:)) . snd) (uncons w >>= uncons . snd)
+rotl [] = []
+rotl x = last x : init x
 
 rotr :: [a] -> [a]
 rotr [] = []

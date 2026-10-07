@@ -180,7 +180,7 @@ main = mapM_ runSequence testSequences >> putStrLn "All red-black tree tests pas
       assert inserted "red-black invariants" (redBlackValid tree)
       assert inserted "inserted values" (treeValues tree == sort inserted)
       assert inserted "search finds every inserted value" (all (isJust . search tree) inserted)
-      assert inserted "search misses absent values" (all (not . isJust . search tree) [-999, 999])
+      assert inserted "search misses absent values" (all (isNothing . search tree) [-999, 999])
       case remaining of
         [] -> pure ()
         value : rest ->

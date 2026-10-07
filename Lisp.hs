@@ -1,78 +1,112 @@
-{-# LANGUAGE PatternSynonyms #-}
-import Data.Bool (bool)
+{-# LANGUAGE PatternSynonyms, BlockArguments #-}
+import Control.Monad (join)
+import System.Console.Readline (readline)
+--import Debug.Trace
+
 data Cons = A String | C Cons Cons
 pattern Nil = A ""
 pattern T = A "t"
 
--- quote
-quote = id
+quote = Just
 
--- atom
-atom (A _) = T
-atom _ = Nil
+atom (A _) = Just T
+atom _ = Just Nil
 
--- eq
 instance Eq Cons where
   A x == A y = x == y
   _ == _ = False
-eq x y = bool Nil T (x == y)
+eq x y = Just if x == y then T else Nil
 
--- car
-car (C x _) = x
+car (C x _) = Just x
+car _ = Nothing
 
--- cdr
-cdr (C _ x) = x
+cdr (C _ x) = Just x
+cdr _ = Nothing
 
--- cons
-cons = C
+cons = (Just .) . C
 
--- cond
-cond (C (C T x) _) = x
+cond (C (C T x) _) = Just x
 cond (C _ x) = cond x
+cond _ = Nothing
 
 -- funcs
-append Nil = id
-append (C x y) = C x . append y
+append Nil = Just
+append (C x y) = (C x <$>) . append y
+append _ = const Nothing
 
-pair Nil _ = Nil
-pair (A x) y = (C (A x) y)
-pair _ (A _) = Nil
-pair (C x xs) (C y ys) = C (C x y) (pair xs ys)
+pair Nil _ = Just Nil
+pair (A x) y = Just (C (A x) y)
+pair _ (A _) = Just Nil
+pair (C x xs) (C y ys) = C (C x y) <$> pair xs ys
 
 assoc (C (C x y) z) w
-  | w == x = y
+  | w == x = Just y
   | otherwise = assoc z w
+assoc _ _ = Nothing
 
 -- eval
-eval :: Cons -> Cons -> Cons
+eval :: Cons -> Cons -> Maybe Cons
+eval a e@(A _) = assoc a e
 eval a (C (A t) (C e Nil)) = case t of
-  "quote" -> e
-  "atom" -> atom (eval a e)
-  "car" -> car (eval a e)
-  "cdr" -> cdr (eval a e)
-eval a (C (A t) (C e (C e' Nil))) = case t of
-  "eq" -> eq (eval a e) (eval a e')
-  "cons" -> cons (eval a e) (eval a e')
-eval a (C (A "cond") e) = cond e
+  "quote" -> quote e
+  "atom" -> atom =<< e'
+  "car" -> car =<< e'
+  "cdr" -> cdr =<< e'
+  where e' = eval a e
+eval a (C (A t) (C e (C e2 Nil))) = case t of
+  "eq" -> join (eq <$> e' <*> e2')
+  "cons" -> join (cons <$> e' <*> e2')
+  where e' = eval a e; e2' = eval a e2
+eval a (C (A "cond") e) = evcon e
   where
-    cond (C (C y x) z)
-      | eval a y == T = eval a x
+    evcon (C (C y x) z)
+      | eval a y == Just T = eval a x
       | otherwise = cond z
-eval a (C (C (A "label") (C (A f) e)) i) = eval (C (C (A f) e) a) (C e i)
-eval a (C (C (A "lambda") (C g e)) i) = eval (append (pair g (evlis a i)) a) e
-  where
-    evlis _ Nil = Nil
-    evlis a (C x xs) = C (eval a x) (evlis a xs)
+eval a (C f@(A _) e) = assoc a f >>= flip cons e >>= eval a
+eval a (C (C (A "label") e'@(C (A _) e)) i) = eval (C e' a) (C e i)
+eval a (C (C (A "lambda") (C g e)) i) = let
+    evlis _ Nil = Just Nil
+    evlis a (C x xs) = join (cons <$> eval a x <*> evlis a xs)
+  in evlis a i
+  >>= pair g
+  >>= flip append a
+  >>= flip eval e
+eval _ _ = Nothing
 
 -- repl
 instance Show Cons where
+  show Nil = "()"
   show (A x) = x
-  show (C x y) = '(' : showl y
+  show (C x y) = '(' : showl (C x y)
     where
       showl Nil = ")"
       showl (C x Nil) = show x ++ ")"
       showl (C x (A y)) = show x ++ " . " ++ y ++ ")"
       showl (C x xs) = show x ++ ' ' : showl xs
 
-main = do
-  print . eval Nil $ C (A "quote") (C (A "hello") Nil) 
+instance Read Cons where
+  readsPrec _ s =
+    case f s of
+      Left y -> [y]
+      Right _ -> []
+    where
+      first f (x, y) = (f x, y)
+      f ('(':x) = Left (first g (unfoldr f x))
+        where
+          unfoldr f x = case f x of
+            Left (a, b) -> first (a:) (unfoldr f b)
+            Right b -> ([], b)
+          g x@(_:_:_) | last (init x) == A "."
+            = foldr1 C (init (init x) ++ [last x])
+          g x = foldr C Nil x
+      f (')':x) = Right x
+      f (' ':x) = f x
+      f x = (Left . first A . break (`elem` "() ")) x
+
+main = (readline "> " >>= maybe (putStrLn "x") print . (>>= (eval Nil . read))) >> main
+
+-- ideas:
+-- have eval serve a so dictionary can be used over expressions
+-- add numbers, string, etc.
+-- add quote prefix: 'a
+-- add IO?
