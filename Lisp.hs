@@ -103,7 +103,7 @@ instance Read Cons where
       f (' ':x) = f x
       f x = (Left . first A . break (`elem` "() ")) x
 
-main = (readline "> " >>= maybe (putStrLn "x") print . (>>= (eval Nil . read))) >> main
+main = readline "> " >>= putStrLn . maybe "x" show . (>>= (eval Nil . read)) >> main
 
 -- ideas:
 -- have eval serve a so dictionary can be used over expressions
