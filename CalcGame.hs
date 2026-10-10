@@ -1,25 +1,20 @@
+
 import Data.Maybe
-import Data.List
-import Data.Functor
 import Text.Read
 
--- TODO: can totally use some monads
-
-searchCalcs :: [Int -> Maybe Int] -> Int -> Int -> Int -> Maybe [Int]
+searchCalcs :: forall a. (Num a, Eq a) => [a -> Maybe a] -> Int -> a -> a -> Maybe [a]
 searchCalcs _ _ a b | a == b = Just []
 searchCalcs _ 0 _ _ = Nothing
-searchCalcs m l s g = c
+searchCalcs m l s g = b
   where
     mIx :: [Int]
     mIx = [0..pred (length m)]
-    next :: Int -> Maybe [Int]
-    next n = if isNothing (m !! n $ s) then Nothing else (n:) <$> searchCalcs m (pred l) (fromJust (m !! n $ s)) g
-    a :: [Maybe [Int]]
+    next :: Int -> Maybe [a]
+    next n = (fromIntegral n:) <$> ((m !! n) s >>= flip (searchCalcs m (pred l)) g)
+    a :: [Maybe [a]]
     a = map next mIx
-    b :: [Maybe [Int]] -- [Just [Int]]
-    b = filter isJust a
-    c :: Maybe [Int]
-    c = if null b then Nothing else head b
+    b :: Maybe [a]
+    b = listToMaybe (catMaybes a)
 
 idv :: Int -> Int -> Maybe Int
 idv y x = if mod x y == 0 then Just $ div x y else Nothing
@@ -52,5 +47,5 @@ sr a b = read . sr' . show
 
 main :: IO ()
 main = do
-  let x = searchCalcs [j.apd 0, j.(*2), j.sr '2' "10", j.rev, j.sr '0' "1"] 5 100 101
+  let x = searchCalcs (map (Just .) [apd 0, (*2), sr '2' "10", rev, sr '0' "1"]) 5 100 101
   print x

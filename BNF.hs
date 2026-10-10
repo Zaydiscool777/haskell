@@ -1,7 +1,6 @@
+
 import Control.Applicative
 import Data.List (intercalate)
-
--- TODO: monads + combinators
 
 type Rulename = String
 type Rule = (Rulename, Expr)
@@ -134,4 +133,4 @@ x = match [
   ] "bb"
 
 main :: IO ()
-main = print x
+main = print (logs x)
