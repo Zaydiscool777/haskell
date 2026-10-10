@@ -1,13 +1,10 @@
 module Prolog (
   Sym(..), Term(..), Rule(..), Env(..), Res(..), Tagged(..),
-  subst, (-?>), unify, solve,
-  matches, strip, walk,
+  subst, (-?>), unify, solve, strip,
   sym, fact, var, query) where -- https://hackage.haskell.org/package/NanoProlog-0.3
 import qualified Data.Map as M
 import Data.Foldable (foldrM)
 import Data.Maybe (catMaybes)
-import Data.List (nubBy)
-import Data.Function (on) -- why no nubOn in base!
 
 type Sym = String
 type Tag = Int
@@ -31,15 +28,6 @@ instance Tagged Rule where tag t (c :- cs) = tag t c :- map (tag t) cs
 x -?> Var y = x /= y
 x -?> Fun _ y = all (x -?>) y
 
-matches :: (Term, Term) -> Env -> Maybe Env -- replacement / smaller check before unify
-matches (t, u) e = subst e t ?- u where
-  (?-) :: Term -> Term -> Maybe Env
-  Var x ?- y | x -?> y = Just (M.insert x y e)
-  Fun x xc ?- Fun y yc
-    | x == y && length xc == length yc
-    = foldrM matches e (zip xc yc)
-  _ ?- _ = Nothing
-
 unify :: (Term, Term) -> Env -> Maybe Env -- inference between terms
 unify (t, u) e = subst e t ? subst e u where
   (?) :: Term -> Term -> Maybe Env
@@ -57,11 +45,7 @@ solve rs (t:ts) tg e = Do (catMaybes
 
 strip :: Res -> [Env]
 strip (Yes y) = [y]
-strip (Do x) = nubBy ((==) `on` M.mapKeys fst) (x >>= strip . snd)
-
-walk :: Env -> Term -> Term
-walk e s@(Var _) = walk e (subst e s)
-walk e s@(Fun _ _) = s
+strip (Do x) = x >>= strip . snd
 
 -- shorthands
 var x = Var (x, [])

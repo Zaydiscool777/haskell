@@ -1,8 +1,9 @@
-
 import Data.Maybe
 import Data.List
 import Data.Functor
 import Text.Read
+
+-- TODO: can totally use some monads
 
 searchCalcs :: [Int -> Maybe Int] -> Int -> Int -> Int -> Maybe [Int]
 searchCalcs _ _ a b | a == b = Just []

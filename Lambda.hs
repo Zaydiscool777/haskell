@@ -1,8 +1,6 @@
 {-# LANGUAGE PatternSynonyms #-}
 
-import Data.Bool
-import Data.Char
-import Data.List
+import Data.Char (isDigit)
 
 data Expr a = Abstr (Expr a) | Appl (Expr a) (Expr a) | Vari Int
   | Ext a deriving (Eq) -- unbound
@@ -36,7 +34,7 @@ eunc x y = func' x 0 (Ext y)
 data Undef = Undef
 instance (Read Undef) where
   readsPrec :: Int -> ReadS Undef
-  readsPrec = const (singleton . (Undef,))
+  readsPrec = const (pure . (Undef,))
 instance (Show Undef) where
   show :: Undef -> String
   show = const ""
