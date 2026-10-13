@@ -1,6 +1,9 @@
-{-# LANGUAGE ScopedTypeVariables, PartialTypeSignatures, DataKinds #-}
-import Data.Void (Void, absurd)
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE PartialTypeSignatures #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 import Data.Kind (Type)
+import Data.Void (Void, absurd)
 
 {-import GHC.Base (TYPE, LiftedRep)
 type Type = TYPE LiftedRep
@@ -15,27 +18,41 @@ either a b c = case c of
 
 main :: IO ()
 main = putStrLn "Q.E.D.; quod erat demonstrandum"
+
 -- this is curry-howard isomorphism of https://en.wikipedia.org/wiki/Intuitionistic_logic
 
 type a :> b = a -> b -- implies
+
 type a :* b = (a, b) -- and
+
 type a :+ b = Either a b -- or
 -- these two may be abnormally defined
+
 type a :*> b = (b a, a) -- for all
+
 type a :+> b = Either (b a) a -- there exists
+
 data Unit = Unit deriving (Eq, Show)
 
 type Not a = a -> Void
+
 newtype To a b = Unto {unto :: b -> a}
+
 class Unchair a where em :: (a :+ Not a) -- proves a is not false
+
 instance Unchair Unit where em :: Unit :+ Not Unit; em = Left Unit
+
 instance Unchair Void where em :: Void :+ Not Void; em = Right id
 
 -- Not is 11 by default
 infixl 7 :*
+
 infixl 6 :+
+
 infixr 4 :>
+
 infix 3 :*>
+
 infix 3 :+>
 
 -- axioms
@@ -44,18 +61,48 @@ exceptions: coEl and diIn are split by -L and -R, vaIn is imIn Unit
 the only other axiom not of In or El is imDs (distribution of im over im)
 usually first two letters state the main propositon of axioms
 implication, comjuntion, disjunction, value, universal & existential quantification -}
-imIn :: a -> b :> a; imEl :: (a, a :> b) -> b; imDs :: a :> b :> c -> ((a :> b) :> (a :> c))
-imIn = const; imEl = uncurry (flip id); imDs = (<*>)
-coIn :: (a, b) -> a :* b; coElL :: a :* b -> a; coElR :: a :* b -> b
-coIn = id; coElL = fst; coElR = snd
-diInL :: a -> a :+ b; diInR :: b -> a :+ b; diEl :: (a :> c, b :> c, a :+ b) -> c
-diInL = Left; diInR = Right; diEl = untrurry either where untrurry f (a, b, c) = f a b c
-vaEl :: Void -> a; vaEl = absurd
+imIn :: a -> b :> a
+imEl :: (a, a :> b) -> b
+imDs :: a :> b :> c -> ((a :> b) :> (a :> c))
+imIn = const
+
+imEl = uncurry (flip id)
+
+imDs = (<*>)
+
+coIn :: (a, b) -> a :* b
+coElL :: a :* b -> a
+coElR :: a :* b -> b
+coIn = id
+
+coElL = fst
+
+coElR = snd
+
+diInL :: a -> a :+ b
+diInR :: b -> a :+ b
+diEl :: (a :> c, b :> c, a :+ b) -> c
+diInL = Left
+
+diInR = Right
+
+diEl = untrurry either where untrurry f (a, b, c) = f a b c
+
+vaEl :: Void -> a
+vaEl = absurd
+
 -- unIn and exIn may be difficult to use normally
-unIn :: a :> f a -> a :> (a :*> f); unEl :: (x :*> To p) -> x :> p
-unIn = (>>=(,)); unEl = unto . fst
-exIn :: f a :> a -> (a :+> f) :> a; exEl :: x :> p -> (x :+> To p)
-exIn = flip either id; exEl = Left . Unto
+unIn :: a :> f a -> a :> (a :*> f)
+unEl :: (x :*> To p) -> x :> p
+unIn = (>>= (,))
+
+unEl = unto . fst
+
+exIn :: f a :> a -> (a :+> f) :> a
+exEl :: x :> p -> (x :+> To p)
+exIn = flip either id
+
+exEl = Left . Unto
 
 -- set qed to final comp., and set proof to qed
 imId :: a -> a
@@ -125,7 +172,6 @@ deimp a = qed
     e :: b :+ Not a
     e = diEl (c, d, em)
     qed = e
-
 
 peirce :: forall a b. (Unchair a) => ((a :> b) :> a) -> a
 peirce a = qed

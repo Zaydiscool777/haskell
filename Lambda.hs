@@ -2,21 +2,26 @@
 
 import Data.Char (isDigit)
 
-data Expr a = Abstr (Expr a) | Appl (Expr a) (Expr a) | Vari Int
-  | Ext a deriving (Eq) -- unbound
+data Expr a
+  = Abstr (Expr a)
+  | Appl (Expr a) (Expr a)
+  | Vari Int
+  | Ext a
+  deriving (Eq) -- unbound
 
 func' :: Expr a -> Int -> (Expr a -> Expr a)
 func' (Abstr x) user@0 z = func' x 1 z
 func' (Abstr a) n z = Abstr (func' a (succ n) z)
 func' (Appl a@(Abstr x) b) n z = func' (func' a 0 b) n z -- yes
 func' (Appl a b) n z = Appl (func' a n z) (func' b n z) -- maybe?
-func' (Vari a) n z = if a == n then z else Vari a 
+func' (Vari a) n z = if a == n then z else Vari a
 func' (Ext x) _ z = Ext x -- error "func' ext"
 
 -------Extra functions-------------------------------
 
 (<//>) :: a -> a -> (a -> b) -> (b -> b -> c) -> c
 (x <//> y) f c = f x `c` f y
+
 -- <//> easier to type than <*>$
 
 pattern (:>) :: Expr a -> Expr a -> Expr a
@@ -28,54 +33,68 @@ type Varn = Int
 
 func :: Expr a -> Expr a -> Expr a
 func x = func' x 0
+
 eunc :: Expr a -> a -> Expr a
 eunc x y = func' x 0 (Ext y)
 
 data Undef = Undef
+
 instance (Read Undef) where
   readsPrec :: Int -> ReadS Undef
   readsPrec = const (pure . (Undef,))
+
 instance (Show Undef) where
   show :: Undef -> String
   show = const ""
+
 type PExpr = Expr Undef
 
 instance (Show a) => Show (Expr a) where
-  show :: Show a => Expr a -> String
+  show :: (Show a) => Expr a -> String
   show (Abstr x) = "/ " ++ show x
   show (Appl x y) = "`(" ++ show x ++ ") (" ++ show y ++ ")"
   show (Vari x) = '.' : show x
   show (Ext (x :: a)) = '!' : show x
 
 instance (Read a) => Read (Expr a) where
-  readsPrec :: Read a => Int -> ReadS (Expr a)
+  readsPrec :: (Read a) => Int -> ReadS (Expr a)
   readsPrec _ s =
     case parse s of
       [] -> []
       xs -> [(foldl1 Appl xs, "")]
-    where -- todo: turn () = () into case clauses with error being parse returns []
+    where
+      -- todo: turn () = () into case clauses with error being parse returns []
       parse :: (Read a) => String -> [Expr a]
       parse "" = []
-      parse ('/':r) = Abstr a:b
-        where (a:b) = parse r
-      parse ('λ':r) = Abstr a:b
-        where (a:b) = parse r
-      parse ('\'':r) = Appl a b:c
-        where (a:b:c) = parse r
-      parse ('.':r) = Vari (read a :: Varn):parse b
-        where (a, b) = span isDigit r
-      parse ('!':r) = Ext a:parse b
-        where ((a :: a, b):_) = reads r
+      parse ('/' : r) = Abstr a : b
+        where
+          (a : b) = parse r
+      parse ('λ' : r) = Abstr a : b
+        where
+          (a : b) = parse r
+      parse ('\'' : r) = Appl a b : c
+        where
+          (a : b : c) = parse r
+      parse ('.' : r) = Vari (read a :: Varn) : parse b
+        where
+          (a, b) = span isDigit r
+      parse ('!' : r) = Ext a : parse b
+        where
+          ((a :: a, b) : _) = reads r
       -- parse ('#':r) = parse $ tail $ dropWhile (/='#') r
-      parse (_:r) = parse r
-
+      parse (_ : r) = parse r
 
 -------SKI calculus---------------------------------
 
-data SKI a = S | K | I
+data SKI a
+  = S
+  | K
+  | I
   | ApplS (SKI a) (SKI a)
-  | Inv Varn | InvA (SKI a)
-  | ExtS a deriving (Eq, Show)
+  | Inv Varn
+  | InvA (SKI a)
+  | ExtS a
+  deriving (Eq, Show)
 
 frSKI :: SKI a -> Expr a
 frSKI I = Abstr (Vari 1)

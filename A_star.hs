@@ -1,7 +1,10 @@
 import qualified Data.Map as M
-import qualified Data.Set as S -- -package containers
-import Data.Tuple (swap)
+-- -package containers
+
 import Data.Maybe
+import qualified Data.Set as S
+import Data.Tuple (swap)
+
 -- psqueues: Data.IntPSQ, containers: Data.Map, Data.Set
 -- https://en.wikipedia.org/wiki/A*_search_algorithm#Pseudocode
 
@@ -16,44 +19,54 @@ gs: dict of g(Nod x): current known cost of using the node
 -}
 
 data Nod = Node {i :: Int, c :: [Nod]}
+
 instance Eq Nod where
   (==) :: Nod -> Nod -> Bool
   Node ai ac == Node bi bc = ai == bi
+
 instance Ord Nod where
   (<=) :: Nod -> Nod -> Bool
   Node ai ac <= Node bi bc = ai <= bi
+
 nNod :: Nod
 nNod = Node 0 []
+
 instance Show Nod where
   show :: Nod -> String
   show (Node ai ac) = show ai ++ ": " ++ show ac
 
 start :: Nod
 start = Node 1 [Node 2 [Node 4 [goal], goal]]
+
 goal :: Nod
 goal = Node 5 []
+
 h :: Nod -> Int
-h = (5-) . i
-d :: Num a => p1 -> p2 -> a
+h = (5 -) . i
+
+d :: (Num a) => p1 -> p2 -> a
 d _ _ = 1 -- weight of a distance from one node to another
 
 -- retraces steps to return path
 reconst :: M.Map Int Nod -> Int -> [Int]
 reconst pres cur = reconst' pres [cur] cur
+
 reconst' :: M.Map Int Nod -> [Int] -> Int -> [Int]
 reconst' pres path cur =
   case pres M.!? cur of
     Nothing -> path
-    Just (Node pre _) -> reconst' pres (pre:path) pre
+    Just (Node pre _) -> reconst' pres (pre : path) pre
 
 aStar :: [Int]
-aStar = -- initialize loop
-  aStar' M.empty (S.singleton start) (M.fromList [(start, 0)]) (M.fromList [(start, h start)]) 
+aStar =
+  -- initialize loop
+  aStar' M.empty (S.singleton start) (M.fromList [(start, 0)]) (M.fromList [(start, h start)])
 
 -- while-loop container
 aStar' :: M.Map Int Nod -> S.Set Nod -> M.Map Nod Int -> M.Map Nod Int -> [Int]
 aStar' pres open fs gs =
-  if S.null open then [] -- failure
+  if S.null open
+    then [] -- failure
     else aStarW pres open fs gs
 
 -- while-loop body
@@ -64,33 +77,34 @@ aStarW pres open fs gs =
       reconst pres (i cur) -- retrace your steps
     else
       aStar' npres nopen nfs ngs
-    where
-      cur :: Nod = fst (M.findMin (M.filterWithKey (\k _ -> S.member k open) fs))
-      openwc = S.delete cur open
-      exfs = M.delete cur fs
-      exgs = M.delete cur gs
-      (npres, nopen, nfs, ngs) =
-        foldr (aStarF cur) (pres, openwc, exfs, exgs) (c cur)
+  where
+    cur :: Nod = fst (M.findMin (M.filterWithKey (\k _ -> S.member k open) fs))
+    openwc = S.delete cur open
+    exfs = M.delete cur fs
+    exgs = M.delete cur gs
+    (npres, nopen, nfs, ngs) =
+      foldr (aStarF cur) (pres, openwc, exfs, exgs) (c cur)
 
 -- for-loop body, uses foldr
-aStarF :: Nod -> -- Nod -> Folder Nod State?
-  Nod -> (M.Map Int Nod, S.Set Nod, M.Map Nod Int, M.Map Nod Int)
-  -> (M.Map Int Nod, S.Set Nod, M.Map Nod Int, M.Map Nod Int)
+aStarF ::
+  Nod -> -- Nod -> Folder Nod State?
+  Nod ->
+  (M.Map Int Nod, S.Set Nod, M.Map Nod Int, M.Map Nod Int) ->
+  (M.Map Int Nod, S.Set Nod, M.Map Nod Int, M.Map Nod Int)
 aStarF cur nei (pres, open, fs, gs) =
   if tentg < maybenei
     then
-      (
-        M.insert (i nei) cur pres,
+      ( M.insert (i nei) cur pres,
         S.insert nei open,
         M.insert nei tentg gs,
         M.insert nei (tentg + h nei) fs
       )
     else
       (pres, open, fs, gs)
-    where
-      tentg = maybecur + d cur nei
-      maybecur = fromMaybe maxBound (gs M.!? cur)
-      maybenei = fromMaybe maxBound (gs M.!? nei)
+  where
+    tentg = maybecur + d cur nei
+    maybecur = fromMaybe maxBound (gs M.!? cur)
+    maybenei = fromMaybe maxBound (gs M.!? nei)
 
 main :: IO ()
 main = print aStar

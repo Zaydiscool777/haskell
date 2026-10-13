@@ -1,5 +1,8 @@
-{-# OPTIONS_GHC -Wno-x-partial #-} -- only because of rotl
+-- only because of rotl
+{-# OPTIONS_GHC -Wno-x-partial #-}
+
 module Combinators where
+
 -- # hiding Prelude(???) (only some)
 -- flip f a b = f b a
 -- infixr 9 .
@@ -16,16 +19,18 @@ module Combinators where
 -- applyWhen = flip (bool id)
 -- on :: (i -> i -> x) -> (a -> i) -> a -> a -> x
 -- (op `on` f) x y = f x `op` f y -- on c f a b <> (<//>) a b f c
-import Control.Arrow (Arrow((&&&)))
+import Control.Arrow (Arrow ((&&&)))
 -- # hiding Control.Arrow
 -- (f &&& g) x = (f x, g x)
 import Control.Monad ((>=>))
+
 -- # hiding Control.Monad
 -- (>=>) = (. (=<<)) . (.>)
 
 -- # quite common combinators
 
 infixl 8 .:
+
 (.:) :: (a -> b) -> (i -> j -> a) -> i -> j -> b
 (.:) = (.) . (.)
 
@@ -33,10 +38,12 @@ infixl 8 .:
 ($:) = (.) (.)
 
 infixr 1 & -- a & b & f = f a b = (f $ a) $ b
+
 (&) :: f -> (f -> v) -> v
 (&) = flip id -- to be more precise, flip ($)
 
 infixl 8 .:.
+
 (.:.) :: (b -> c) -> (i -> j -> a -> b) -> i -> j -> a -> c
 (.:.) = (.:) . (.)
 
@@ -47,6 +54,7 @@ bool t f c = if c then t else f
 
 s :: (z -> y -> x) -> (z -> y) -> z -> x
 s x y z = x z (y z)
+
 -- s = ap -- s = (<*>)
 {-Note: instance Applicative ((->) r) defines its <*> as f x (g x)...-}
 
@@ -69,6 +77,7 @@ w = flip s id
 -- b' f g x = f (g x) -- b' a b = a ($ b)?
 b' :: (((a -> v) -> v) -> c) -> a -> c
 b' = (. (&))
+
 -- note: since a $ b $ c = (a . b) c, you could develop an
 -- uneven barrage of b' and . when there could've been
 -- a very nice pattern.
@@ -78,15 +87,22 @@ b' = (. (&))
 -- ## F#
 
 infixl 0 |>
+
 (|>) :: a -> (a -> b) -> b
 (|>) = (&)
+
 infixr 0 <|
+
 (<|) :: (a -> b) -> a -> b
 (<|) = ($)
+
 infixr 0 >|
+
 (>|) :: a -> (a -> b) -> b
 (>|) = (&)
+
 infixl 0 |<
+
 (|<) :: (a -> b) -> a -> b
 (|<) = ($)
 
@@ -94,10 +110,13 @@ infixl 0 |<
 
 (/->) :: (Monoid a) => [a] -> a
 (/->) = mconcat
+
 (//->) :: (Monoid a) => [a] -> [a]
 (//->) = scanl (<>) mempty
+
 (^|) :: (Ord a) => a -> a -> a
 (^|) = max
+
 (^/) :: (Ord a) => a -> a -> a
 (^/) = min
 
@@ -118,8 +137,10 @@ swp2 = (&)
 
 ror3 :: a1 -> a2 -> (a1 -> a2 -> v) -> v
 ror3 = b' (b' . (.>))
+
 rol3 :: a1 -> (a2 -> a1 -> v) -> a2 -> v
 rol3 = b' (.)
+
 swp3 :: a1 -> a2 -> (a2 -> a1 -> v) -> v
 swp3 = b' (b' . (.))
 
@@ -127,14 +148,19 @@ swp3 = b' (b' . (.))
 
 fab :: (t1 -> t2 -> t3) -> t1 -> t2 -> t3
 fab = id
+
 fba :: (t1 -> t2 -> t3) -> t2 -> t1 -> t3
 fba = flip
+
 afb :: t1 -> (t1 -> t2 -> t3) -> t2 -> t3
 afb = (&) -- fba fab
+
 abf :: t1 -> (t2 -> t1 -> t3) -> t2 -> t3
 abf = b' (.)
+
 bfa :: t1 -> t2 -> (t1 -> t2 -> t3) -> t3
 bfa = b' (b' . (.>))
+
 baf :: t1 -> t2 -> (t2 -> t1 -> t3) -> t3
 baf = b' (b' . (.))
 
@@ -150,6 +176,7 @@ rol4 = b' (.:)
 
 ror5 :: t1 -> t2 -> t3 -> t4 -> (t1 -> t2 -> t3 -> t4 -> t5) -> t5
 ror5 = b' (b' . (b' .: (((b' . (.>)) .:) . ((.>) .: (.>)))))
+
 -- a % (b c) <> (%) a (b c) <> ((a %) . b) c
 
 rol5 :: t1 -> (t2 -> t3 -> t4 -> t1 -> t5) -> t2 -> t3 -> t4 -> t5
@@ -163,27 +190,32 @@ rol5 = b' (.:.)
 (<<$>>) = fmap . fmap
 
 infixl 9 <.>
+
 (<.>) :: (Functor f) => (t -> a -> b) -> t -> f a -> f b
 (<.>) = (fmap .)
 
 infixl 4 <*>>
+
 (<*>>) :: (Applicative f) => f a -> f (a -> b) -> f b
 (<*>>) = flip (<*>)
 
-(<&&>) :: Applicative f => f a -> f b -> f (a,b)
+(<&&>) :: (Applicative f) => f a -> f b -> f (a, b)
 (<&&>) = liftA2 (,)
 
 -- # flipped combinators
 
 infixl 9 .> -- a . b . c = c .> b .> a
+
 (.>) :: (a -> b) -> (b -> c) -> a -> c
 (.>) = flip (.)
 
 infixr 9 !!>
+
 (!!>) :: Int -> [c] -> c
 (!!>) = flip (!!)
 
 infixr 6 ><
+
 (><) :: (Semigroup a) => a -> a -> a
 (><) = flip (<>)
 
@@ -191,12 +223,14 @@ infixr 6 ><
 
 -- ## https://webarchive.di.uminho.pt/wiki.di.uminho.pt/twiki/bin/view/Personal/Alcino/PointlessHaskell.html
 
-infix 6  /\
-(/\) :: (a -> b) -> (a -> c) -> a -> (b,c)
+infix 6 /\
+
+(/\) :: (a -> b) -> (a -> c) -> a -> (b, c)
 (/\) = (&&&)
 
 infix 7 \/
-(\/) :: (a -> b) -> (c -> d) -> (a,c) -> (b,d)
+
+(\/) :: (a -> b) -> (c -> d) -> (a, c) -> (b, d)
 (\/) = cross
 
 -- ## https://wiki.haskell.org/
@@ -204,6 +238,7 @@ infix 7 \/
 -- by Cale
 swing :: (((a -> b) -> b) -> c -> d) -> c -> a -> d
 swing = flip . b'
+
 {-
 swing map :: forall a b. [a -> b] -> a -> [b]
 swing any :: forall a. [a -> Bool] -> a -> Bool
@@ -226,10 +261,12 @@ bar = foo $:: albert ~> beth ~>   carol
 -}
 
 infixl 1 $::
+
 ($::) :: (xins -> xret) -> ((xins -> xret) -> (ins -> ret)) -> ins -> ret
 ($::) = (&)
 
 infixr 2 ~>
+
 (~>) :: (ins -> pin) -> (pout -> out) -> ((pin -> pout) -> (ins -> out))
 (~>) = ((. (.)) . (.)) . (.>)
 
@@ -291,6 +328,7 @@ be = eg eg
 -- (<//>) :: a -> a -> (a -> i) -> (i -> i -> x) -> x
 (<//>) :: (Functor f1, Functor f2) => f1 a -> f2 a -> (a -> i) -> (f1 i -> f2 i -> x) -> x
 (a <//> b) f c = (c <$> (<$> a) <*> (<$> b)) f
+
 -- (a <//> b) f c = f a `c` f b
 -- (a <//> b) f = b <//> a ((&) . f) (.)
 -- a <//> b = (<$> a) /<>/ (<$> b)
@@ -301,7 +339,7 @@ be = eg eg
 -- (f /<>/ g) a c = f a `c` g a
 (f /<>/ g) a c = (c <$> f <*> g) a
 
-tap :: Monad m => (b -> m a) -> b -> m b
+tap :: (Monad m) => (b -> m a) -> b -> m b
 tap = flip flip (>>) . (/<>/ return)
 
 cross :: (t1 -> a) -> (t2 -> b) -> (t1, t2) -> (a, b)
@@ -317,7 +355,7 @@ rotl x = last x : init x
 rotr :: [a] -> [a]
 rotr [] = []
 rotr [x] = [x]
-rotr (x:y:z) = (\(y:z) -> y:x:z) (rotr (y:z))
+rotr (x : y : z) = (\(y : z) -> y : x : z) (rotr (y : z))
 
 -- 1:2:[]
 

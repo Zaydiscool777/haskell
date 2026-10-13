@@ -1,10 +1,15 @@
-{-# LANGUAGE PatternSynonyms, BlockArguments #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE PatternSynonyms #-}
+
 import Control.Monad (join)
 import System.Console.Readline (readline)
---import Debug.Trace
+
+-- import Debug.Trace
 
 data Cons = A String | C Cons Cons
+
 pattern Nil = A ""
+
 pattern T = A "t"
 
 quote = Just
@@ -15,6 +20,7 @@ atom _ = Just Nil
 instance Eq Cons where
   A x == A y = x == y
   _ == _ = False
+
 eq x y = Just if x == y then T else Nil
 
 car (C x _) = Just x
@@ -52,11 +58,13 @@ eval a (C (A t) (C e Nil)) = case t of
   "atom" -> atom =<< e'
   "car" -> car =<< e'
   "cdr" -> cdr =<< e'
-  where e' = eval a e
+  where
+    e' = eval a e
 eval a (C (A t) (C e (C e2 Nil))) = case t of
   "eq" -> join (eq <$> e' <*> e2')
   "cons" -> join (cons <$> e' <*> e2')
-  where e' = eval a e; e2' = eval a e2
+  where
+    e' = eval a e; e2' = eval a e2
 eval a (C (A "cond") e) = evcon e
   where
     evcon (C (C y x) z)
@@ -64,13 +72,13 @@ eval a (C (A "cond") e) = evcon e
       | otherwise = cond z
 eval a (C f@(A _) e) = assoc a f >>= flip cons e >>= eval a
 eval a (C (C (A "label") e'@(C (A _) e)) i) = eval (C e' a) (C e i)
-eval a (C (C (A "lambda") (C g e)) i) = let
-    evlis _ Nil = Just Nil
-    evlis a (C x xs) = join (cons <$> eval a x <*> evlis a xs)
-  in evlis a i
-  >>= pair g
-  >>= flip append a
-  >>= flip eval e
+eval a (C (C (A "lambda") (C g e)) i) =
+  let evlis _ Nil = Just Nil
+      evlis a (C x xs) = join (cons <$> eval a x <*> evlis a xs)
+   in evlis a i
+        >>= pair g
+        >>= flip append a
+        >>= flip eval e
 eval _ _ = Nothing
 
 -- repl
@@ -91,16 +99,17 @@ instance Read Cons where
       Right _ -> []
     where
       first f (x, y) = (f x, y)
-      f ('(':x) = Left (first g (unfoldr f x))
+      f ('(' : x) = Left (first g (unfoldr f x))
         where
           unfoldr f x = case f x of
-            Left (a, b) -> first (a:) (unfoldr f b)
+            Left (a, b) -> first (a :) (unfoldr f b)
             Right b -> ([], b)
-          g x@(_:_:_) | last (init x) == A "."
-            = foldr1 C (init (init x) ++ [last x])
+          g x@(_ : _ : _)
+            | last (init x) == A "." =
+                foldr1 C (init (init x) ++ [last x])
           g x = foldr C Nil x
-      f (')':x) = Right x
-      f (' ':x) = f x
+      f (')' : x) = Right x
+      f (' ' : x) = f x
       f x = (Left . first A . break (`elem` "() ")) x
 
 main = readline "> " >>= putStrLn . maybe "x" show . (>>= (eval Nil . read)) >> main
