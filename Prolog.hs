@@ -10,16 +10,17 @@ module Prolog
     unify,
     solve,
     strip,
+    cut,
     sym,
     fact,
     var,
-    query, -- https://hackage.haskell.org/package/NanoProlog-0.3
+    query,
   )
-where
+where -- https://hackage.haskell.org/package/NanoProlog-0.3
 
 import Data.Foldable (foldrM)
 import qualified Data.Map as M
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, listToMaybe)
 
 type Sym = String
 
@@ -33,7 +34,7 @@ data Rule = Term :- [Term] deriving (Eq)
 
 type Env = M.Map VarD Term
 
-data Res = Yes Env | Do [(Rule, Res)] deriving (Eq)
+data Res = Yes Env | Do [(Rule, Res)] | Cut Res deriving (Eq)
 
 subst :: Env -> Term -> Term -- substitiution
 subst e v@(Var x) = maybe v (subst e) (M.lookup x e)
@@ -65,7 +66,7 @@ unify (t, u) e = subst e t ? subst e u
 solve :: [Rule] -> [Term] -> Tag -> Env -> Res -- the crux of prolog
 solve _ [] _ e = Yes e
 solve rs (t : ts) tg e =
-  Do
+  (if t == sym "!" then Cut else id) $ Do
     ( catMaybes
         [(r,) . solve rs (cs ++ ts) (succ tg) <$> unify (t, c) e | r@(c :- cs) <- map (tag tg) rs]
     )
@@ -73,6 +74,11 @@ solve rs (t : ts) tg e =
 strip :: Res -> [Env]
 strip (Yes y) = [y]
 strip (Do x) = x >>= strip . snd
+
+cut :: Res -> Maybe Res
+cut (Cut r) = Just (maybe r id (cut r))
+cut (Do xs) = listToMaybe (catMaybes (map (cut . snd) xs))
+cut (Yes _) = Nothing
 
 -- shorthands
 var x = Var (x, [])
@@ -82,5 +88,3 @@ sym x = Fun x []
 fact x y = Fun x y :- []
 
 query x y = solve x [y] 0 M.empty
-
--- cut: when `sym "!"` encountered in `Rule x`'s body, do not check any other instances of `Rule x`'s head.
