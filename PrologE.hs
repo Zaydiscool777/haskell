@@ -33,15 +33,18 @@ page = foldr (\x -> (putStr x >> getLine >>)) (putStrLn "NO") -- replaces: putSt
 
 -- Read instances...are not easy without non-base libraries!
 -- main
-rules =
-  [ fact "edge" [sym "a", sym "b"],
-    fact "edge" [sym "b", sym "c"],
-    Fun "path" [var "X", var "Y"] :- [Fun "edge" [var "X", var "Y"]],
-    Fun "path" [var "X", var "Y"] :- [Fun "edge" [var "X", var "Z"], Fun "path" [var "Z", var "Y"]]
+rules = [ fact "true" [],
+    Fun "not" [var "X"] :- [var "X", sym "!"],
+    Fun "not" [var "X"] :- []
   ]
+  -- [ fact "edge" [sym "a", sym "b"],
+  --   fact "edge" [sym "b", sym "c"],
+  --   Fun "path" [var "X", var "Y"] :- [Fun "edge" [var "X", var "Y"]],
+  --   Fun "path" [var "X", var "Y"] :- [Fun "edge" [var "X", var "Z"], Fun "path" [var "Z", var "Y"]]
+  -- ]
 
-goal = Fun "path" [sym "a", var "X"]
+goal = Fun "not" [sym "false"] -- Fun "path" [sym "a", var "X"]
 
-solution = strip (query rules goal)
+solution = strip (maybe q id (cut q)) where q = query rules goal
 
 main = page (map showEnv solution)
