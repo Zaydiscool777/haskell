@@ -43,7 +43,7 @@ rules = [ fact "true" [],
   --   Fun "path" [var "X", var "Y"] :- [Fun "edge" [var "X", var "Z"], Fun "path" [var "Z", var "Y"]]
   -- ]
 
-goal = Fun "not" [sym "false"] -- Fun "path" [sym "a", var "X"]
+goal = Fun "not" [sym "false"] -- Fun "not" [sym "false"] -- Fun "path" [sym "a", var "X"]
 
 solution = strip (maybe q id (cut q)) where q = query rules goal
 
