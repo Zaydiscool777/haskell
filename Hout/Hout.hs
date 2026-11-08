@@ -1,6 +1,6 @@
 module Hout (main) where
 -- https://hackage.haskell.org/package/hout
-import HoutEx
+import Hout.HoutEx
 import Data.Void
 import Data.Proxy -- Witness
 import Data.Type.Equality -- Equal
@@ -37,7 +37,7 @@ instance IxMonad Tactic where -- functor-like modus ponens
 -- not | -> Void
 
 -- tactics
-data Tactic from to a = Tactic {act :: ((a -> to) -> from)}
+newtype Tactic from to a = Tactic {act :: (a -> to) -> from}
 
 apply :: (a -> b) -> Tactic b a ()
 apply f = Tactic (\x -> f (x ()))
@@ -56,7 +56,7 @@ assert :: Tactic a () () -> Tactic m m a
 assert (Tactic f) = Tactic (\x -> x (f (\() -> ())))
 
 -- theorem actions
-data Theorem a = Proof (Tactic a () ())
+newtype Theorem a = Proof (Tactic a () ())
 runProof :: Theorem a -> a
 runProof (Proof (Tactic f)) = f (\() -> ())
 
@@ -67,7 +67,7 @@ data Axiom a
 admit :: forall a. Axiom a = admit
 
 -- main
-main = return qed
+main = qed
 
 --orComm :: Theorem (Either a b -> Either b a)
 --orComm = do qed
