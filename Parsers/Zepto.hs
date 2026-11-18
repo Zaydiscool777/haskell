@@ -2,17 +2,8 @@
 -- https://hackage.haskell.org/package/attoparsec/docs/src/Data.Attoparsec.Zepto.html
 import Control.Applicative
 import Control.Monad
-import Control.Monad.Fail (MonadFail(..))
+import Control.Monad.Fail ()
 import Control.Monad.State.Lazy
-import Control.Monad.Identity
---import Control.Monad.Trans -- from State as well
-import Data.Char
-import Data.Functor
-import Data.Maybe
-import Data.List
-import qualified Data.List.NonEmpty as N
-import Data.List.NonEmpty (NonEmpty((:|)), nonEmpty)
-import Data.Bifunctor
 
 data Res a t = Ok a t | No t deriving Show
 newtype ParserT t m a = ParserT {runParserT :: t -> m (Res a t)}
@@ -20,20 +11,16 @@ newtype ParserT t m a = ParserT {runParserT :: t -> m (Res a t)}
 -- max. Alternative c -> context-free languages
 
 instance Functor c => Functor (ParserT t c) where
-  fmap f (ParserT x) = ParserT $
-    (. x) $ fmap \case
-      Ok a s' -> Ok (f a) s'
-      No s' -> No s'
+  fmap f (ParserT x) = ParserT $ (. x) $ fmap \case
+    Ok a s' -> Ok (f a) s'
+    No s' -> No s'
 instance Monad c => Applicative (ParserT t c) where
   pure x = ParserT $ pure . Ok x
-  ParserT f <*> ParserT x = ParserT $
-    f >=> \case
-      Ok a s' -> do
-        x' <- x s'
-        return case x' of
-          Ok b s'' -> Ok (a b) s''
-          No s'' -> No s''
-      No s' -> pure (No s')
+  ParserT f <*> ParserT x = ParserT $ f >=> \case
+    Ok a s' -> x s' <&> \case
+      Ok b s'' -> Ok (a b) s''
+      No s'' -> No s''
+    No s' -> pure (No s')
 instance Monad c => Alternative (ParserT t c) where
   empty = ParserT $ pure . No
   ParserT x <|> ParserT y = ParserT \s ->
@@ -43,18 +30,17 @@ instance Monad c => Alternative (ParserT t c) where
 -- technically empty only needs Applicative c, but <|> needs Monad c so yeah
 empty' :: Applicative c => ParserT t c a
 empty' = ParserT $ pure . No
-ParserT x <|>> ParserT y = ParserT $
-  x >=> \case
-    Ok a s' -> pure (Ok a s')
-    No s' -> y s' -- (<|>) but no backtrack
+(<|>>) :: Monad m => ParserT t m a -> ParserT t m a -> ParserT t m a
+ParserT x <|>> ParserT y = ParserT $ x >=> \case
+  Ok a s' -> pure (Ok a s')
+  No s' -> y s' -- (<|>) but no backtrack
 
 instance Monad c => Monad (ParserT t c) where
-  ParserT x >>= f = ParserT $
-    x >=> \case
-      Ok a s' -> let ParserT g = f a in g s'
-      No s' -> return (No s')
+  ParserT x >>= f = ParserT $ x >=> \case
+    Ok a s' -> let ParserT g = f a in g s'
+    No s' -> return (No s')
 instance Monad c => MonadPlus (ParserT t c)
-instance Monad c => MonadFail (ParserT t c) where fail _ = mzero
+instance Monad c => MonadFail (ParserT t c) where fail _ = empty
 
 instance Monad c => Semigroup (ParserT t c a) where (<>) = (<|>)
 instance Monad c => Monoid (ParserT t c a) where mempty = empty
@@ -64,17 +50,6 @@ instance MonadTrans (ParserT t) where
 instance MonadIO c => MonadIO (ParserT t c) where liftIO = lift . liftIO
 instance Monad c => MonadState t (ParserT t c) where
   state = ParserT . (return .) . (uncurry Ok .)
-
-{- import Data.Functor.Invariant
-newtype ApplyT c a t = ApplyT {bruh :: ParserT t c a}
-instance Monad c => Invariant (ApplyT c a) where
-  invmap f f' (ApplyT p') = ApplyT (aux p')
-    where
-    aux (ParserT p) = ParserT \i -> do
-      res <- p (f' i)
-      pure case res of
-        Ok a s -> Ok a (f s)
-        No s -> No (f s) -}
 
 {- import Control.Monad.Trans.Maybe
 type ParserMST t c a = MaybeT (StateT t c) a -}
@@ -109,14 +84,14 @@ sat p = do
 eq :: (Monad c, Eq a) => a -> ParserT [a] c a
 eq = sat . (==)
 
-eqs :: (Monad c, Eq a) => [a] -> ParserT [a] c [a]
-eqs = mapM eq
+-- eqs :: (Monad c, Eq a) => [a] -> ParserT [a] c [a]
+-- eqs = mapM eq
 
 notP :: (Alternative c, Monad c) => c a -> c ()
-notP = optional >=> guard . isNothing
+notP = optional >=> \case {Nothing -> pure (); _ -> empty}
 
-eof :: Monad c => ParserT [a] c ()
-eof = notP item
+-- eof :: Monad c => ParserT [a] c ()
+-- eof = notP item
 
 manch :: Applicative c => (a -> Bool) -> ParserT [a] c [a]
 -- different from (many . sat) in that it succeeds once?
@@ -139,14 +114,17 @@ somch p = ParserT \s -> pure
 choice :: (Alternative c, Foldable l) => l (ParserT t c a) -> ParserT t c a
 choice = foldr (+++) empty'
 
-skSpaces :: Parser ()
-skSpaces = void $ manch isSpace
+-- skSpaces :: Parser ()
+-- skSpaces = void $ manch isSpace
 
 brack :: Applicative c => c x -> c y -> c a -> c a
 (open `brack` close) p = open *> p <* close
-quote q = brack q q
+-- quote q = brack q q
 
 vopt p = void p <|> return ()
+
+(<&>) :: Functor f => f a -> (a -> b) -> f b
+x <&> f = fmap f x
 
 chainl1 p op = p >>= rest
   where
@@ -162,9 +140,10 @@ semiBy p sep = many (p <* sep)
 ops :: (Monad c, Alternative c) => [(ParserT t c a, b)] -> ParserT t c b
 ops x = choice [p >> return op | (p, op) <- x]
 
-tails' :: ParserT [a] [] [a]
-tails' = ParserT \s -> zipWith Ok (inits s) (tails s)
+-- tails' :: ParserT [a] [] [a]
+-- tails' = ParserT \s -> zipWith Ok (inits s) (tails s)
 
+{-
 main :: IO ()
 main = void do ------------------------------------
   let (Ok x _:_) = runParserT ini "x.yy.z = 'hello'\nw = 'no'\nx.yy = 'what'\n"
@@ -193,3 +172,4 @@ dini inp =
       ax <- N.nonEmpty a
       return (ax, b)
     rmpre a@((b:|_, _):|_) = (b, [(c, d) | (_b:|c, d) <- N.toList a])
+-}
