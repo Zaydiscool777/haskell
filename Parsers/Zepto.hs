@@ -1,9 +1,10 @@
-{-# LANGUAGE BlockArguments, ApplicativeDo, LambdaCase #-}
+{-# LANGUAGE BlockArguments, ApplicativeDo, LambdaCase, ViewPatterns #-}
 -- https://hackage.haskell.org/package/attoparsec/docs/src/Data.Attoparsec.Zepto.html
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Fail ()
 import Control.Monad.State.Lazy
+import Data.Functor
 
 data Res a t = Ok a t | No t deriving Show
 newtype ParserT t m a = ParserT {runParserT :: t -> m (Res a t)}
@@ -28,6 +29,8 @@ instance Monad c => Alternative (ParserT t c) where
       Ok a s' -> pure (Ok a s')
       No _ -> y s
 -- technically empty only needs Applicative c, but <|> needs Monad c so yeah
+pure' :: Applicative m => a -> ParserT t m a
+pure' x = ParserT $ pure . Ok x
 empty' :: Applicative c => ParserT t c a
 empty' = ParserT $ pure . No
 (<|>>) :: Monad m => ParserT t m a -> ParserT t m a -> ParserT t m a
@@ -95,24 +98,24 @@ notP = optional >=> \case {Nothing -> pure (); _ -> empty}
 
 manch :: Applicative c => (a -> Bool) -> ParserT [a] c [a]
 -- different from (many . sat) in that it succeeds once?
-manch p = ParserT \s -> pure let (a, s') = scan s in Ok a s'
+manch p = ParserT \(scan -> (a, s')) -> pure (Ok a s')
   where
-    scan (x:xs) | p x = let (a, s) = scan xs in (x:a, s)
-    scan s = ([], s)
+    scan (x:(scan -> (a, s))) | p x = (x:a, s)
+    scan [] = ([], [])
 
 somch :: Monad c => (a -> Bool) -> ParserT [a] c [a]  
-somch p = ParserT \s -> pure
-    case scan1 s of
-      Left (a, s') -> Ok a s'
-      Right s' -> No s'
+somch p = puresr \s ->
+  case scan1 s of
+    Left (a, s') -> Ok a s'
+    Right s' -> No s'
   where
     scan1 (x:xs) | p x = Left (scan (x:xs))
-    scan1 s = Right s
-    scan (x:xs) | p x = let (a, s) = scan xs in (x:a, s)
-    scan s = ([], s)
+    scan1 [] = Right []
+    scan (x:(scan -> (a, s))) | p x = (x:a, s)
+    scan [] = ([], [])
 
 choice :: (Alternative c, Foldable l) => l (ParserT t c a) -> ParserT t c a
-choice = foldr (+++) empty'
+choice x = ParserT \s -> foldr ((<|>) . flip runParserT s) empty x -- a price (asum) to pay
 
 -- skSpaces :: Parser ()
 -- skSpaces = void $ manch isSpace
@@ -121,11 +124,10 @@ brack :: Applicative c => c x -> c y -> c a -> c a
 (open `brack` close) p = open *> p <* close
 -- quote q = brack q q
 
-vopt p = void p <|> return ()
+vopt :: Alternative c => c a -> c ()
+vopt p = void p <|> pure ()
 
-(<&>) :: Functor f => f a -> (a -> b) -> f b
-x <&> f = fmap f x
-
+chainl1 :: (Monad c, Alternative c) => ParserT t c b -> ParserT t c (b -> b -> b) -> ParserT t c b
 chainl1 p op = p >>= rest
   where
     rest x = do
@@ -133,15 +135,20 @@ chainl1 p op = p >>= rest
       y <- p
       rest (f x y) +++ return x
 
+sepBy :: Alternative c => c a -> c b -> c [a]
 sepBy p sep = liftA2 (:) p (many (sep *> p))
 
+semiBy :: Alternative c => c a -> c b -> c [a]
 semiBy p sep = many (p <* sep)
 
-ops :: (Monad c, Alternative c) => [(ParserT t c a, b)] -> ParserT t c b
-ops x = choice [p >> return op | (p, op) <- x]
+ops :: Alternative c => [(ParserT t c a, b)] -> ParserT t c b
+ops = choice . fmap (uncurry ($>)) -- [p $> op | (p, op) <- x]
 
 -- tails' :: ParserT [a] [] [a]
 -- tails' = ParserT \s -> zipWith Ok (inits s) (tails s)
+
+cont :: Applicative c => ParserT a c a
+cont = ParserT \s -> pure (Ok s s)
 
 {-
 main :: IO ()
@@ -172,4 +179,65 @@ dini inp =
       ax <- N.nonEmpty a
       return (ax, b)
     rmpre a@((b:|_, _):|_) = (b, [(c, d) | (_b:|c, d) <- N.toList a])
+-}
+
+{-
+data Exp = Abs Exp | App Exp Exp | Var Integer deriving Show
+
+sub :: Integer -> Exp -> Exp -> Exp
+sub n r (Var x) = if x == n then r else Var x
+sub n r (Abs x) = Abs (sub (n + 1) r x)
+sub n r (App x y) = appl (sub n r x) (sub n r y)
+appl :: Exp -> Exp -> Exp
+appl (Abs x) y = sub 0 y x
+appl x y = App x y
+
+blcp :: Monad c => ParserT [Bool] c Exp
+blcp = do
+  a <- item
+  if a
+    then do
+      v <- manch id
+      item
+      pure $ Var (toInteger (length v))
+    else do
+      b <- item
+      if b
+        then App <$> blcp <*> blcp
+        else Abs <$> blcp
+
+charToBits :: Char -> [Bool]
+charToBits c = [testBit (fromIntegral (ord c) :: Word8) i | i <- [7,6..0]]
+
+blToL :: [Bool] -> Exp
+blToL [] = Abs (Abs (Var 0))
+blToL (x:r) = let w = Abs (Abs (Var if x then 1 else 0)) in Abs (appl (appl (Var 0) w) (blToL r))
+
+lToBl :: Exp -> [Bool]
+lToBl (Abs (Abs (Var 0))) = []
+lToBl (Abs (App (App (Var 0) (Abs (Abs (Var x)))) r)) = ((x == 1):lToBl r)
+lToBl _ = []
+
+bitsToChar :: Monad c => ParserT [Bool] c Char
+bitsToChar = -- (\x -> if x then '1' else '0') <$> item
+  chr . foldl (\a b -> a * 2 + if b then 1 else 0) 0
+    <$> replicateM 8 item
+
+blc :: Exp -> String -> String
+blc e s = go i
+  where
+    i = (lToBl . appl e . blToL) (s >>= charToBits)
+    go b = case runIdentity (runParserT bitsToChar b) of
+      No _ -> []
+      Ok !c rest -> c:go rest
+
+main :: IO ()
+main = do
+  e <- getLine
+  e' <- do
+    Ok e' _ <- runParserT blcp $ map (== '1') e
+    return e'
+  hSetBuffering stdin NoBuffering
+  hSetBuffering stdout NoBuffering
+  interact (blc e')
 -}

@@ -2,7 +2,6 @@
 {-# LANGUAGE PatternSynonyms #-}
 
 import Control.Monad (join)
-import System.Console.Readline (readline) -- readline
 
 -- import Debug.Trace
 
@@ -112,7 +111,10 @@ instance Read Cons where
       f (' ' : x) = f x
       f x = (Left . first A . break (`elem` "() ")) x
 
-main = readline "> " >>= putStrLn . maybe "x" show . (>>= (eval Nil . read)) >> main
+main = do
+  a <- getLine
+  putStrLn $ maybe "x" show (eval Nil (read a))
+  main
 
 -- ideas:
 -- have eval serve a so dictionary can be used over expressions
