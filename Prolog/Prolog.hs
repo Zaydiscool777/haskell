@@ -1,4 +1,4 @@
-module Prolog
+module Prolog.Prolog
   ( Sym (..),
     Term (..),
     Rule (..),
@@ -20,7 +20,7 @@ where -- https://hackage.haskell.org/package/NanoProlog-0.3
 
 import Data.Foldable (foldrM)
 import qualified Data.Map as M
-import Data.Maybe (catMaybes, listToMaybe)
+import Data.Maybe (catMaybes, listToMaybe, mapMaybe, fromMaybe)
 
 type Sym = String
 
@@ -76,8 +76,8 @@ strip (Yes y) = [y]
 strip (Do x) = x >>= strip . snd
 
 cut :: Res -> Maybe Res
-cut (Cut r) = Just (maybe r id (cut r))
-cut (Do xs) = listToMaybe (catMaybes (map (cut . snd) xs))
+cut (Cut r) = Just (fromMaybe r (cut r))
+cut (Do xs) = listToMaybe (mapMaybe (cut . snd) xs)
 cut (Yes _) = Nothing
 
 -- shorthands

@@ -1,9 +1,9 @@
-module PrologE where
+module Prolog.PrologE where
 
 import Data.Foldable (foldrM)
 import Data.List (intercalate)
 import qualified Data.Map as M
-import Prolog
+import Prolog.Prolog
 
 matches :: (Term, Term) -> Env -> Maybe Env -- looser unify?
 matches (t, u) e = subst e t ?- u

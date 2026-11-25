@@ -339,8 +339,8 @@ be = eg eg
 -- (f /<>/ g) a c = f a `c` g a
 (f /<>/ g) a c = (c <$> f <*> g) a
 
-tap :: (Monad m) => (b -> m a) -> b -> m b
-tap = flip flip (>>) . (/<>/ return)
+tap :: (Applicative m) => (b -> m a) -> b -> m b
+tap = flip flip (*>) . (/<>/ pure)
 
 cross :: (t1 -> a) -> (t2 -> b) -> (t1, t2) -> (a, b)
 cross f g (x, y) = (f x, g y)

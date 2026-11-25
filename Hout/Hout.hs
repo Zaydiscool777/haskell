@@ -3,10 +3,10 @@
 module Hout.Hout (main) where
 -- https://hackage.haskell.org/package/hout
 import Hout.HoutEx
-import qualified Hout.HoutIx as Ix
 import Hout.HoutIx (Tactic(..))
-import Data.Void
--- import Data.Proxy -- Witness
+import qualified Hout.HoutIx as Ix
+import Data.Void -- False
+-- import Data.Proxy -- Existence
 -- import Data.Type.Equality -- Equal
 
 -- true | ()
