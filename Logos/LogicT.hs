@@ -1,15 +1,12 @@
 {-# LANGUAGE LambdaCase, BlockArguments #-}
-module Prolog.LogicT where
+module Logos.LogicT where
 -- https://okmij.org/ftp/papers/LogicT.pdf
 -- https://hackage.haskell.org/package/logict
 import Data.List
 import Control.Monad
 import Control.Applicative
 import Control.Monad.Trans
-import Data.Bits (Bits(xor))
-import Data.Functor
-import Control.Monad.Identity (Identity(runIdentity))
-import Data.Maybe
+import Control.Monad.Identity
 
 -- Nothing <- msplit empty
 -- Just (-> a, m) <- msplit (-> a <|> m)
@@ -88,4 +85,4 @@ bag n x = msplit x >>= \case
   Just (xh, xt) -> (xh:) <$> bag (pred <$> n) xt
 
 runL :: Maybe Int -> LogicT Identity a -> [a]
-runL = ((concat . runIdentity . solve) .) . bag -- concat???
+runL n m = maybe id take n $ runIdentity (solve m) -- no bag?

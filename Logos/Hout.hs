@@ -1,10 +1,10 @@
 {-# LANGUAGE QualifiedDo #-}
 {-# LANGUAGE BlockArguments #-}
-module Hout.Hout (apply, intro, exact, assert, enough, deply, runTheorem, qed) where
+module Logos.Hout (apply, intro, exact, assert, enough, deply, runTheorem, qed) where
 -- https://hackage.haskell.org/package/hout
-import Hout.HoutEx
-import Hout.HoutIx (Tactic(..))
-import qualified Hout.HoutIx as Ix
+import Logos.HoutEx
+import Logos.HoutIx (Tactic(..))
+import qualified Logos.HoutIx as Ix
 import Data.Void -- False/Axiom
 -- import Data.Proxy -- Existence
 -- import Data.Type.Equality -- Equal

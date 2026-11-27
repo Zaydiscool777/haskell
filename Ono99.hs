@@ -14,7 +14,6 @@ import Data.Ord (comparing)
 import Data.Tree (Tree (Node), drawForest)
 import Data.Tuple (swap)
 import System.CPUTime (getCPUTime)
-import System.Random (randomRIO)
 
 -- 1-10
 
@@ -133,7 +132,7 @@ rndSelect :: [a] -> Int -> IO [a]
 rndSelect [] _ = pure []
 rndSelect _ x | x <= 0 = pure []
 rndSelect l n = do
-  i <- randomRIO (0, pred $ length l) -- randomRIO is an artifact
+  let i = 0 -- i <- randomRIO (0, pred $ length l) -- randomRIO is an artifact
   let m = removeAt i l
   j <- rndSelect (snd m) (pred n)
   return (fst m : j)

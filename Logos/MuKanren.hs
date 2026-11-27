@@ -1,5 +1,5 @@
 {-# LANGUAGE ViewPatterns, BlockArguments #-}
-module Prolog.MuKanren where
+module Logos.MuKanren where
 -- http://webyrd.net/scheme-2013/papers/HemannMuKanren2013.pdf
 -- it is actually called microkanren
 import Control.Monad.State

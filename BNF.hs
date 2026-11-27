@@ -1,6 +1,8 @@
 import Control.Applicative
 import Data.List (intercalate)
 
+-- TODO: readchar enriched with free applicative (Alt) -- https://blog.jle.im/entry/free-alternative-regexp.html
+
 type Rulename = String
 
 type Rule = (Rulename, Expr)

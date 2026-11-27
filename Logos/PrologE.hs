@@ -1,9 +1,10 @@
-module Prolog.PrologE where
+module Logos.PrologE where
 
 import Data.Foldable (foldrM)
 import Data.List (intercalate)
 import qualified Data.Map as M
-import Prolog.Prolog
+import Data.Maybe (fromMaybe)
+import Logos.Prolog
 
 matches :: (Term, Term) -> Env -> Maybe Env -- looser unify?
 matches (t, u) e = subst e t ?- u
@@ -29,22 +30,22 @@ showEnv :: Env -> String
 showEnv x = unlines ("YES" : [v ++ " <- " ++ show (subst x (Var s)) | (s@(v, []), _) <- M.toList x])
 
 page :: [String] -> IO ()
-page = foldr (\x -> (putStr x >> getLine >>)) (putStrLn "NO") -- replaces: putStr . unlines
+page = foldr ((*>) . (<* getLine) . putStr) (putStrLn "NO") -- replaces: putStr . unlines
 
 -- Read instances...are not easy without non-base libraries!
 -- main
-rules = [ fact "true" [],
+rules =
+  [
+    fact "true" [],
     Fun "not" [var "X"] :- [var "X", sym "!"], -- ! is still checked for, and false by default
     Fun "not" [var "X"] :- []
   ]
-  -- [ fact "edge" [sym "a", sym "b"],
-  --   fact "edge" [sym "b", sym "c"],
-  --   Fun "path" [var "X", var "Y"] :- [Fun "edge" [var "X", var "Y"]],
-  --   Fun "path" [var "X", var "Y"] :- [Fun "edge" [var "X", var "Z"], Fun "path" [var "Z", var "Y"]]
-  -- ]
+  {-[ fact "edge" [sym "a", sym "b"],
+    fact "edge" [sym "b", sym "c"],
+    Fun "path" [var "X", var "Y"] :- [Fun "edge" [var "X", var "Y"]],
+    Fun "path" [var "X", var "Y"] :- [Fun "edge" [var "X", var "Z"], Fun "path" [var "Z", var "Y"]]
+  ]-}
 
-goal = Fun "not" [sym "false"] -- Fun "not" [sym "false"] -- Fun "path" [sym "a", var "X"]
-
-solution = strip (maybe q id (cut q)) where q = query rules goal
-
+goal = Fun "not" [sym "false"] -- Fun "path" [sym "a", var "X"]
+solution = strip (fromMaybe q (cut q)) where q = query rules goal
 main = page (map showEnv solution)

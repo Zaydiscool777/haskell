@@ -1,5 +1,5 @@
 {-# LANGUAGE RebindableSyntax, BlockArguments #-}
-module Hout.HoutIx where
+module Logos.HoutIx where
 import Prelude ((.), ($), const)
 import qualified Prelude as P
 

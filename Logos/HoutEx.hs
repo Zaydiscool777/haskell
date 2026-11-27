@@ -3,7 +3,7 @@
 -- {-# LANGUAGE PolyKinds #-}
 -- {-# LANGUAGE ExistentialQuantification #-}
 -- {-# LANGUAGE Rank2Types #-}
-module Hout.HoutEx where
+module Logos.HoutEx where
 
 import Data.Kind
 import Data.Proxy
