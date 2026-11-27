@@ -1,11 +1,11 @@
 {-# LANGUAGE QualifiedDo #-}
 {-# LANGUAGE BlockArguments #-}
-module Hout.Hout (main) where
+module Hout.Hout (apply, intro, exact, assert, enough, deply, runTheorem, qed) where
 -- https://hackage.haskell.org/package/hout
 import Hout.HoutEx
 import Hout.HoutIx (Tactic(..))
 import qualified Hout.HoutIx as Ix
-import Data.Void -- False
+import Data.Void -- False/Axiom
 -- import Data.Proxy -- Existence
 -- import Data.Type.Equality -- Equal
 
@@ -33,35 +33,28 @@ assert (Tactic f) = Tactic ($ f id)
 enough :: (a -> Tactic b () ()) -> Tactic b a () -- monadic apply
 enough t = Tactic \f -> let Tactic g = t (f ()) in g id
 
-idk :: Tactic b a () -> a -> b
-idk (Tactic f) = f . const
--- the opposite of apply is exact . idk
+deply :: Tactic b a () -> a -> b
+deply (Tactic f) = f . const
+-- :: Iso (a -> b) (Tactic b a ()) = iso apply deply
 
 -- theorem actions
 type Theorem a = Tactic a () ()
-runProof :: Theorem a -> a
-runProof (Tactic f) = f id
+runTheorem :: Theorem a -> a
+runTheorem (Tactic f) = f id
 
 qed :: Tactic () () ()
 qed = exact ()
 
-data Axiom a
-admit :: forall {k} (a :: k). Axiom a
-admit = admit
-
--- main
-main :: Tactic () () ()
-main = Ix.do
-  qed
+-- example
 
 orComm :: Theorem (Either a b -> Either b a)
 orComm = Ix.do
-  a <- intro
-  case a of
+  a <- intro -- Tactic (Either a b -> Either b a) (Either b a) (Either a b)
+  case a of -- Tactic (Either b a) () ()
     Left b -> Ix.do
-      apply Right
-      exact b
+      apply Right -- (a -> Either b a) -> Tactic (Either b a) a ()
+      exact b -- a -> Tactic a () ()
     Right b -> Ix.do
-      apply Left
-      exact b
-  qed
+      apply Left -- (b -> Either b a) -> Tactic (Either b a) b ()
+      exact b -- b -> Tactic b () ()
+  qed -- Tactic () () ()

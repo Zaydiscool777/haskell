@@ -1,4 +1,4 @@
-{-# LANGUAGE RebindableSyntax #-}
+{-# LANGUAGE RebindableSyntax, BlockArguments #-}
 module Hout.HoutIx where
 import Prelude ((.), ($), const)
 import qualified Prelude as P
@@ -17,10 +17,18 @@ class Applicative m => Monad m where
 newtype Tactic from to a = Tactic {act :: (a -> to) -> from}
 
 instance Functor Tactic where -- apply tactic
-  fmap (Tactic g) proof = Tactic (\f -> g (f . proof))
+  fmap (Tactic g) proof = Tactic \f -> g (f . proof)
 instance Applicative Tactic where -- normal modus ponens
   pure a = Tactic ($ a)
-  (Tactic g) <*> (Tactic h) = Tactic (\f -> g (\a_b -> h (f . a_b)))
+  (Tactic g) <*> (Tactic h) = Tactic \f -> g \a_b -> h (f . a_b)
 instance Monad Tactic where -- functor-like modus ponens
-  (Tactic g) >>= f = Tactic (\b_o -> g (\a -> act (f a) b_o))
+  (Tactic g) >>= f = Tactic \b_o -> g \a -> act (f a) b_o
   (Tactic g) >> (Tactic f) = Tactic (g . const . f)
+
+{-
+Tactic to from a ~ from implies to (and you have a)
+z = do
+  x -- Tactic a b _
+  y -- Tactic b c _
+z :: Tactic a c
+-}
